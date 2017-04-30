@@ -1,0 +1,5 @@
+*.sublime-project
+*.pyc
+env
+config*.ini
+secret
