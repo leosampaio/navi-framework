@@ -21,6 +21,9 @@ class Telegram(object):
         self.updater = Updater(self.key)
         self.bot = Bot(token=self.key)
 
+        Navi.db.set_secret_for_key('telegram_key', self.key)
+        Navi.context["telegram_key"] = self.key
+
         # iterate over command functions and try to import each
         ext_functions = Navi.db.get_all_extension_functions(
             'telegram_commands')
@@ -45,7 +48,7 @@ class Telegram(object):
                                             entry_point)
             self.updater.dispatcher.add_handler(tg_msg_handler)
         except Exception as e:
-            pass
+            raise e
 
         self.updater.start_polling()
         self.updater.idle()
@@ -76,12 +79,10 @@ def telegram_entry_point(func):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            context = {
-                "user": update.message.chat_id,
-            }
-            reply_message = func(message, context)
+            Navi.context["telegram_user"] = update.message.chat_id
+            reply_message = func(message, Navi.context)
             if reply_message is not None:
-                reply(bot, context["user"], reply_message)
+                reply(bot, update.message.chat_id, reply_message)
             return reply_message
 
         Navi.db.extension_set_func_for_key('telegram', func, 'entry_point')
@@ -107,13 +108,11 @@ def telegram_command(command):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            context = {
-                "user": update.message.chat_id,
-            }
+            Navi.context["telegram_user"] = update.message.chat_id
 
-            reply_message = func(message, context)
+            reply_message = func(message, Navi.context)
             if reply_message is not None:
-                reply(bot, context["user"], reply_message)
+                reply(bot, update.message.chat_id, reply_message)
             return reply_message
 
         Navi.db.extension_set_func_for_key('telegram_commands',

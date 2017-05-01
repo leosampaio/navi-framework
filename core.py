@@ -9,6 +9,8 @@ class Navi(object):
     modules together with navi's modules
     """
 
+    context = {}
+
     def __init__(self, bot_module,
                  intent_modules=None,
                  handler_modules=None,
@@ -64,10 +66,13 @@ class Navi(object):
                     raise ImportError(
                         "Can't import interface module {}".format(module))
 
-    def start(self, messaging_platforms):
+    def start(self, messaging_platforms, conversational_platforms):
         """Start bot in development mode, if available for chosen messaging
         platform.
         """
+
+        for platform in conversational_platforms:
+            platform.start()
 
         for platform in messaging_platforms:
             platform.start()
@@ -83,9 +88,3 @@ def get_handler_for(intent):
         return Handler()
     except:
         return None
-
-def reply(context, message):
-    context['platform'].reply(context, message)
-
-def send_message(context, message):
-    context['platform'].reply(context, message)

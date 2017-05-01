@@ -61,5 +61,24 @@ class Register(object):
         functions = [(e['key'], e['module'], e['func']) for e in entries]
         return functions
 
+    def set_secret_for_key(self, key, value):
+        ext_db = self.db.table("secrets")
+        entry = {
+            'key': key,
+            'value': value,
+        }
+        ext_db.insert(entry)
+
+    def get_secret_for_key(self, key):
+        ext_db = self.db.table("secrets")
+        entry = ext_db.search(where('key') == key)
+
+        if len(entry) > 0:
+            entry = entry[0]
+        else:
+            return None
+
+        return entry['value']
+
     def clean(self):
         self.db.purge_tables()
