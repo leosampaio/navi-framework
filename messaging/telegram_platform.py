@@ -56,11 +56,13 @@ class Telegram(object):
 
 def reply(bot, user, message):
     """Reply to user infered by context dict."""
+
     bot.sendMessage(
         chat_id=user,
         text=message,
         parse_mode=ParseMode.MARKDOWN
     )
+
 
 
 def telegram_entry_point(func):
@@ -82,7 +84,11 @@ def telegram_entry_point(func):
             Navi.context["telegram_user"] = update.message.chat_id
             reply_message = func(message, Navi.context)
             if reply_message is not None:
-                reply(bot, update.message.chat_id, reply_message)
+                if isinstance(reply_message, list):
+                    for message in reply_message:
+                        reply(bot, update.message.chat_id, message)
+                else:
+                    reply(bot, update.message.chat_id, reply_message)
             return reply_message
 
         Navi.db.extension_set_func_for_key('telegram', func, 'entry_point')

@@ -1,6 +1,7 @@
 import abc
 
 from navi.core import Navi
+from navi.intents import Entity, Intent
 
 
 class IntentHandler(object):
@@ -23,15 +24,33 @@ class IntentHandler(object):
 
     __metaclass__ = abc.ABCMeta
 
-    @abc.abstractmethod
     def resolve(self, intent, context={}):
         """Check if all needed parameters are set. Complain if not.
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
         :param context: a dictionary describing current context
-        :rtype: A :class: `TVSeriesEpisodeIntentResolveResponse`
+        :rtype: A resolve response
         """
-        pass
+
+        resolve_responses = {}
+
+        entities = [i for i in dir(intent.__class__) if isinstance(
+            getattr(intent.__class__, i), Entity)]
+        for entity_name in entities:
+            try:
+                method_name = "resolve_{}".format(entity_name)
+                method = getattr(self, method_name)
+                resolution = method(getattr(intent, entity_name))
+                resolve_responses[entity_name] = resolution
+                print("{}: {}".format(entity_name, resolution))
+            except Exception as e:
+                print(str(e))
+                resolution = Intent.ResolveResponse.not_required
+                resolve_responses[entity_name] = resolution
+                print("{}: {}".format(entity_name,
+                                      Intent.ResolveResponse.not_required))
+
+        return resolve_responses
 
     def confirm(self, intent, context={}):
         """Optional. Perform any final validation of the intent parameters
@@ -40,7 +59,7 @@ class IntentHandler(object):
         :param intent: an intent object of type TVSeriesEpisodeIntent
         :param context: a dictionary describing current context
         """
-        pass
+        return Intent.ConfirmResponse.ready
 
     @abc.abstractmethod
     def handle(self, intent, context={}):
@@ -48,7 +67,8 @@ class IntentHandler(object):
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
         :param context: a dictionary describing current context
-        :rtype: A :class: `TVSeriesEpisodeIntentHandleResponse`
+        :rtype: A dictionary with all values that the developer wants exposed
+        to the interface regarding the task handling
         """
         pass
 

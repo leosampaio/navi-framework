@@ -9,23 +9,41 @@ class Intent(object):
     `IntentHandler`.
     """
 
-    class IntentResolveResponse(object):
+    def __init__(self, **kwargs):
+        entities = [i for i in dir(self) if isinstance(
+            getattr(self, i), Entity)]
+        for entity_name in entities:
+            setattr(self, entity_name, kwargs.get(entity_name))
+
+    class ResolveResponse(Enum):
         """Base Intent Resolving Response.
         The resolve stage is where the intent handler may request for missing
         information.
         """
-        pass
+        not_required = 0
+        missing = 1
+        unsupported = 2
+        ambiguous = 3
+        ready = 4
 
-    class IntentHandleResponse(object):
-        """Base Intent Handling Response.
-        Represents a response from the Intent Handler to the Interface
-        """
+    class ConfirmResponse(Enum):
+        unspecified = 0
+        unsupported = 1
+        failure = 2
+        ready = 3
 
-        class IntentHandlingStatus(Enum):
+    class HandleResponse(object):
+
+        class Status(Enum):
             """Defines possible handling status for a handle response"""
-            unspecified = 1
-            in_progress = 3
-            success = 4
-            failure = 5
+            unspecified = 0
+            in_progress = 1
+            success = 2
+            failure = 3
 
-        status = IntentHandlingStatus.unspecified
+        def __init__(self, status, response_dict):
+            self.status = status
+            self.response_dict = response_dict
+
+class Entity(object):
+    pass
