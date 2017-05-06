@@ -2,4 +2,4 @@
 *.pyc
 env
 config*.ini
-secret
+.DS_Store

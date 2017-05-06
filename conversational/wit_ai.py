@@ -2,7 +2,9 @@ import uuid
 from importlib import import_module
 
 from wit import Wit
-from navi.core import Navi, get_handler_for
+from navi.core import (Navi, get_handler_for,
+                       set_can_close_session, should_close_session,
+                       set_session_was_closed)
 from navi.intents import Intent
 
 
@@ -24,11 +26,11 @@ class WitConversationalPlatform(object):
 def close_session():
     Navi.context["wit_context"] = {}
     Navi.context["wit_context"]["session_started"] = False
-    Navi.context["wit_should_close_session"] = False
+    set_session_was_closed()
 
 
 def close_session_when_done():
-    Navi.context["wit_should_close_session"] = True
+    set_can_close_session()
 
 
 def has_open_session():
@@ -109,17 +111,20 @@ def parse_message(message, context):
             return parse_message("", Navi.context["wit_context"])
 
         except Exception as e:
-            print(str(e))
+            print(e)
     elif converse_result['type'] == 'msg':
         Navi.context["wit_messages"][session].append(converse_result['msg'])
         return parse_message("", Navi.context["wit_context"])
 
     elif converse_result['type'] == 'stop':
-        if Navi.context["wit_should_close_session"]:
-            close_session()
-        messages = Navi.context["wit_messages"][session]
-        Navi.context["wit_messages"][session] = []
-        return messages
+        try:
+            if should_close_session():
+                close_session()
+            messages = Navi.context["wit_messages"][session]
+            Navi.context["wit_messages"][session] = []
+            return messages
+        except Exception as e:
+            print(e)
 
 
 def _simplify_entities_dict(entities_dict):

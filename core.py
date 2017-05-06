@@ -35,6 +35,7 @@ class Navi(object):
             os.path.dirname(bot_module.__file__))
         Navi.db = Register(Navi.dbfilename)
         Navi.db.clean()
+        Navi.context["should_close_session"] = False
 
         if intent_modules == None:
             import_module('.intents', bot_module.__name__)
@@ -66,7 +67,8 @@ class Navi(object):
                     raise ImportError(
                         "Can't import interface module {}".format(module))
 
-    def start(self, messaging_platforms, conversational_platforms):
+    def start(self, messaging_platforms=[], conversational_platforms=[],
+              speech_platforms=[]):
         """Start bot in development mode, if available for chosen messaging
         platform.
         """
@@ -75,6 +77,9 @@ class Navi(object):
             platform.start()
 
         for platform in messaging_platforms:
+            platform.start()
+
+        for platform in speech_platforms:
             platform.start()
 
 
@@ -89,6 +94,28 @@ def get_handler_for(intent):
     except:
         return None
 
+
 def entity_from_entities_or_context(entity_name, entities, context):
     a = [entities.get(entity_name, None), context.get(entity_name, None)]
     return next((item for item in a if item is not None), None)
+
+
+def set_can_close_session():
+    Navi.context["should_close_session"] = True
+
+
+def should_close_session():
+    return Navi.context["should_close_session"]
+
+
+def set_session_was_closed():
+    Navi.context["is_session_open"] = False
+    Navi.context["should_close_session"] = False
+
+
+def open_session():
+    Navi.context["is_session_open"] = True
+
+
+def is_session_open():
+    return Navi.context["is_session_open"]
