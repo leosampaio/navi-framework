@@ -2,12 +2,16 @@ import logging
 import os
 import inspect
 from importlib import import_module
+import logging
 
 from telegram.ext import (Updater, MessageHandler, CommandHandler,
                           Filters)
 from telegram import Bot, ParseMode
+from pydispatch import dispatcher
 
 from navi.core import Navi
+
+logger = logging.getLogger(__name__)
 
 
 class Telegram(object):
@@ -18,40 +22,36 @@ class Telegram(object):
     def start(self):
         """Start Telegram Pooling (for development)"""
 
+        # initialize
         self.updater = Updater(self.key)
         self.bot = Bot(token=self.key)
 
-        Navi.db.set_secret_for_key('telegram_key', self.key)
-        Navi.context["telegram_key"] = self.key
+        # set context
+        Navi.context["telegram"] = {}
+        Navi.context["telegram"]["key"] = self.key
 
-        # iterate over command functions and try to import each
-        ext_functions = Navi.db.get_all_extension_functions(
-            'telegram_commands')
-        for (key, comm_module_name, comm_func_name) in ext_functions:
-            try:
-                comm_module = import_module(comm_module_name)
-                comm_func = getattr(comm_module, comm_func_name)
-                tg_comm_handler = CommandHandler(key, comm_func)
-                self.updater.dispatcher.add_handler(tg_comm_handler)
-            except Exception as e:
-                raise e
+        # set handlers
+        tg_msg_handler = MessageHandler(Filters.text,
+                                        self._send_entry_point_signal)
+        tg_comm_handler = MessageHandler(Filters.command,
+                                         self._send_command_signal)
+        self.updater.dispatcher.add_handler(tg_msg_handler)
+        self.updater.dispatcher.add_handler(tg_comm_handler)
 
-        # get entry point funtion
-        (ep_module_name, ep_func_name) = Navi.db.get_extension_func_for_key(
-            'telegram', 'entry_point')
-
-        # and try to import and register with telegram
-        try:
-            ep_module = import_module(ep_module_name)
-            entry_point = getattr(ep_module, ep_func_name)
-            tg_msg_handler = MessageHandler(Filters.text,
-                                            entry_point)
-            self.updater.dispatcher.add_handler(tg_msg_handler)
-        except Exception as e:
-            raise e
-
+        # start pooling
         self.updater.start_polling()
         self.updater.idle()
+
+    def _send_entry_point_signal(self, bot, update):
+        dispatcher.send(signal="telegram_entry_point", sender=self,
+                        bot=bot, update=update)
+
+    def _send_command_signal(self, bot, update):
+        command = update.message.text.split(' ', 1)[0][1:]
+        signal = "telegram_command_{}".format(command)
+        logger.info("Sent {} signal".format(signal))
+        dispatcher.send(signal=signal, sender=self,
+                        bot=bot, update=update)
 
 
 def reply(bot, user, message):
@@ -62,7 +62,6 @@ def reply(bot, user, message):
         text=message,
         parse_mode=ParseMode.MARKDOWN
     )
-
 
 
 def telegram_entry_point(func):
@@ -81,7 +80,7 @@ def telegram_entry_point(func):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            Navi.context["telegram_user"] = update.message.chat_id
+            Navi.context["telegram"]["user"] = update.message.chat_id
             reply_message = func(message, Navi.context)
             if reply_message is not None:
                 if isinstance(reply_message, list):
@@ -91,8 +90,10 @@ def telegram_entry_point(func):
                     reply(bot, update.message.chat_id, reply_message)
             return reply_message
 
-        Navi.db.extension_set_func_for_key('telegram', func, 'entry_point')
-        print("registering {} for telegram entry point".format(func.__name__))
+        dispatcher.connect(wrap_and_call, signal="telegram_entry_point",
+                           sender=dispatcher.Any)
+        logger.info(
+            "registering {} for entry point".format(func.__name__))
         return wrap_and_call
 
     return decorator(func)
@@ -114,17 +115,17 @@ def telegram_command(command):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            Navi.context["telegram_user"] = update.message.chat_id
+            Navi.context["telegram"]["user"] = update.message.chat_id
 
             reply_message = func(message, Navi.context)
             if reply_message is not None:
                 reply(bot, update.message.chat_id, reply_message)
             return reply_message
 
-        Navi.db.extension_set_func_for_key('telegram_commands',
-                                           func,
-                                           command)
-        print("registering {} for telegram command '{}'".format(
+        dispatcher.connect(wrap_and_call,
+                           signal="telegram_command_{}".format(command),
+                           sender=dispatcher.Any)
+        logger.info("registering {} for command '{}'".format(
             func.__name__, command))
         return wrap_and_call
 

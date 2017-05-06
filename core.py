@@ -1,7 +1,10 @@
 from importlib import import_module
 import os
+import logging
 
 from register import Register
+
+logger = logging.getLogger("navi")
 
 
 class Navi(object):
@@ -14,7 +17,8 @@ class Navi(object):
     def __init__(self, bot_module,
                  intent_modules=None,
                  handler_modules=None,
-                 interface_modules=None):
+                 interface_modules=None,
+                 debug=False):
         """Initialize Navi instance with your bot modules
 
         :param bot_module: required. specifies your bot's main module
@@ -28,6 +32,16 @@ class Navi(object):
         :param interface_modules: if provided, these modules are used instead 
         of the default module `interfaces`
         """
+
+        if debug:
+            logger.propagate = False
+            logger.setLevel(logging.DEBUG)
+            formatter = logging.Formatter(
+                '%(asctime)s %(name)s \n%(levelname)-12s  %(message)s')
+            ch = logging.StreamHandler()
+            ch.setLevel(logging.DEBUG)
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
 
         self.bot_module = bot_module
 

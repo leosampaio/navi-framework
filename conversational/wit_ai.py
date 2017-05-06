@@ -1,11 +1,15 @@
 import uuid
 from importlib import import_module
+import logging
 
 from wit import Wit
 from navi.core import (Navi, get_handler_for,
                        set_can_close_session, should_close_session,
                        set_session_was_closed)
 from navi.intents import Intent
+
+
+logger = logging.getLogger(__name__)
 
 
 class WitConversationalPlatform(object):
@@ -54,7 +58,7 @@ def wit_action(action):
         Navi.db.extension_set_func_for_key('wit_actions',
                                            func,
                                            action)
-        print("registering {} for wit.ai action '{}'".format(
+        logger.info("registering {} for action '{}'".format(
             func.__name__, action))
         return func
 
@@ -72,7 +76,7 @@ def parse_message(message, context):
     converse_result = client.converse(session,
                                       message,
                                       Navi.context["wit_context"])
-    print(converse_result)
+    logger.info("Converse Result: %s", converse_result)
     if converse_result['type'] == 'action':
         action_name = converse_result['action']
 
@@ -111,7 +115,7 @@ def parse_message(message, context):
             return parse_message("", Navi.context["wit_context"])
 
         except Exception as e:
-            print(e)
+            logger.exception(e)
     elif converse_result['type'] == 'msg':
         Navi.context["wit_messages"][session].append(converse_result['msg'])
         return parse_message("", Navi.context["wit_context"])
@@ -124,7 +128,7 @@ def parse_message(message, context):
             Navi.context["wit_messages"][session] = []
             return messages
         except Exception as e:
-            print(e)
+            logger.exception(e)
 
 
 def _simplify_entities_dict(entities_dict):

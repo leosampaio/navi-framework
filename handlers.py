@@ -1,7 +1,10 @@
 import abc
+import logging
 
 from navi.core import Navi
 from navi.intents import Entity, Intent
+
+logger = logging.getLogger("__name__")
 
 
 class IntentHandler(object):
@@ -42,13 +45,14 @@ class IntentHandler(object):
                 method = getattr(self, method_name)
                 resolution = method(getattr(intent, entity_name))
                 resolve_responses[entity_name] = resolution
-                print("{}: {}".format(entity_name, resolution))
+                logger.info("{}: {}".format(entity_name, resolution))
             except Exception as e:
                 print(str(e))
                 resolution = Intent.ResolveResponse.not_required
                 resolve_responses[entity_name] = resolution
-                print("{}: {}".format(entity_name,
-                                      Intent.ResolveResponse.not_required))
+                logger.info("{}: {}".format(
+                    entity_name,
+                    Intent.ResolveResponse.not_required))
 
         return resolve_responses
 
@@ -87,7 +91,8 @@ def handler_for_intent(intent):
     """
 
     def class_decorator(Cls):
-        print("registering {} for {}".format(Cls.__name__, intent.__name__))
+        logger.info("registering {} for {}".format(
+            Cls.__name__, intent.__name__))
         Navi.db.set_handler_for_intent(Cls, intent)
         return Cls
 

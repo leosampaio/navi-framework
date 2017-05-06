@@ -3,9 +3,13 @@ import os
 import inspect
 import time
 from importlib import import_module
+import logging
 
 from navi.core import Navi, is_session_open, open_session
 from navi.speech.snowboy import snowboydecoder
+
+
+logger = logging.getLogger(__name__)
 
 
 class SnowboyHotwordDetector(object):
@@ -19,7 +23,7 @@ class SnowboyHotwordDetector(object):
         (ep_module_name, ep_func_name) = Navi.db.get_extension_func_for_key(
             'hotword', 'activation')
 
-        # and try to import and register with telegram
+        # and try to import and register
         activation_function = lambda x: None
         try:
             ep_module = import_module(ep_module_name)
@@ -35,6 +39,7 @@ class SnowboyHotwordDetector(object):
                        sleep_time=0.03)
 
 interrupted = False
+
 
 def _set_is_interrupted(is_interrupted):
     global interrupted
@@ -68,7 +73,7 @@ def hotword_activation(speech_decorator):
                 speech_decorator(func)(*kvars, **kwargs)
 
         Navi.db.extension_set_func_for_key('hotword', func, 'activation')
-        print("registering {} for hotword_activation".format(func.__name__))
+        logger.info("registering {} for hotword_activation".format(func.__name__))
         return wrap_and_call
 
     return decorator
