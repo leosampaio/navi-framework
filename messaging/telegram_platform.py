@@ -3,6 +3,7 @@ import os
 import inspect
 from importlib import import_module
 import logging
+import time
 
 from telegram.ext import (Updater, MessageHandler, CommandHandler,
                           Filters)
@@ -40,7 +41,8 @@ class Telegram(object):
 
         # start pooling
         self.updater.start_polling()
-        self.updater.idle()
+        while True:
+            time.sleep(1)
 
     def _send_entry_point_signal(self, bot, update):
         dispatcher.send(signal="telegram_entry_point", sender=self,
@@ -81,7 +83,9 @@ def telegram_entry_point(func):
         def wrap_and_call(bot, update):
             message = update.message.text
             Navi.context["telegram"]["user"] = update.message.chat_id
+            dispatcher.send(signal="did_receive_text_message")
             reply_message = func(message, Navi.context)
+            dispatcher.send(signal="did_generate_text_reply")
             if reply_message is not None:
                 if isinstance(reply_message, list):
                     for message in reply_message:
@@ -116,8 +120,9 @@ def telegram_command(command):
         def wrap_and_call(bot, update):
             message = update.message.text
             Navi.context["telegram"]["user"] = update.message.chat_id
-
+            dispatcher.send(signal="did_receive_text_message")
             reply_message = func(message, Navi.context)
+            dispatcher.send(signal="did_generate_text_reply")
             if reply_message is not None:
                 reply(bot, update.message.chat_id, reply_message)
             return reply_message

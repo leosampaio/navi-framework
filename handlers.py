@@ -1,6 +1,8 @@
 import abc
 import logging
 
+from pydispatch import dispatcher
+
 from navi.core import Navi
 from navi.intents import Entity, Intent
 
@@ -27,7 +29,7 @@ class IntentHandler(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def resolve(self, intent, context={}):
+    def resolve(self, intent):
         """Check if all needed parameters are set. Complain if not.
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
@@ -56,7 +58,7 @@ class IntentHandler(object):
 
         return resolve_responses
 
-    def confirm(self, intent, context={}):
+    def confirm(self, intent):
         """Optional. Perform any final validation of the intent parameters
         and to verify that you are ready to handle the intent
 
@@ -66,7 +68,7 @@ class IntentHandler(object):
         return Intent.ConfirmResponse.ready
 
     @abc.abstractmethod
-    def handle(self, intent, context={}):
+    def handle(self, intent):
         """Execute intended action and return result
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
@@ -75,6 +77,13 @@ class IntentHandler(object):
         to the interface regarding the task handling
         """
         pass
+
+    @classmethod
+    def create(cls):
+        """IntentHandler Factory to be called on 'handler_for_intent' 
+        dispatcher message
+        """
+        return cls()
 
 
 def handler_for_intent(intent):
@@ -93,7 +102,8 @@ def handler_for_intent(intent):
     def class_decorator(Cls):
         logger.info("registering {} for {}".format(
             Cls.__name__, intent.__name__))
-        Navi.db.set_handler_for_intent(Cls, intent)
+        signal = "handler_for_{}".format(intent.__name__)
+        dispatcher.connect(Cls.create, signal=signal)
         return Cls
 
     return class_decorator

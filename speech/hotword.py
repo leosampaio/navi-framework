@@ -5,6 +5,8 @@ import time
 from importlib import import_module
 import logging
 
+from pydispatch import dispatcher
+
 from navi.core import Navi, is_session_open, open_session
 from navi.speech.snowboy import snowboydecoder
 
@@ -19,45 +21,37 @@ class SnowboyHotwordDetector(object):
 
     def start(self):
 
-        # get entry point funtion
-        (ep_module_name, ep_func_name) = Navi.db.get_extension_func_for_key(
-            'hotword', 'activation')
+        dispatcher.connect(self._terminate_detector,
+                           signal="hotword_terminate_detector",
+                           sender=dispatcher.Any)
+        dispatcher.connect(self._start_detector,
+                           signal="hotword_start_detector",
+                           sender=dispatcher.Any)
 
-        # and try to import and register
-        activation_function = lambda x: None
-        try:
-            ep_module = import_module(ep_module_name)
-            activation_function = getattr(ep_module, ep_func_name)
-        except Exception as e:
-            raise e
+        self.detector = snowboydecoder.HotwordDetector(
+            self.model, sensitivity=0.5)
 
-        detector = snowboydecoder.HotwordDetector(self.model, sensitivity=0.5)
-        Navi.context["hotword_detector"] = detector
+        self._start_detector()
 
-        detector.start(detected_callback=activation_function,
-                       interrupt_check=_interrupt_callback,
-                       sleep_time=0.03)
+    def _terminate_detector(self):
+        self.detector.terminate()
 
-interrupted = False
+    def _start_detector(self):
+        self.detector.start(detected_callback=self._activated_by_hotword,
+                            sleep_time=0.03)
 
-
-def _set_is_interrupted(is_interrupted):
-    global interrupted
-    interrupted = is_interrupted
+    def _activated_by_hotword(self):
+        dispatcher.send(signal="hotword_activation", sender=self)
 
 
-def _interrupt_callback():
-    global interrupted
-    return interrupted
-
-
-def hotword_activation(speech_decorator):
-    """Link a method with telegram's entry point
+def hotword_activation(func):
+    """Link a function with a hotword activation event
 
     usage: 
     ```
         >>> from navi.speech.hotword import hotword_activation
-        >>> @hotword_activation(speech_entry_point)
+        >>> @hotword_activation
+        >>> @speech_entry_point
         >>> def take_care_of_messages(message, context):
         >>>     ...
     ```
@@ -67,13 +61,17 @@ def hotword_activation(speech_decorator):
     def decorator(func):
         def wrap_and_call(*kvars, **kwargs):
             open_session()
-            Navi.context["hotword_detector"].terminate()
+            dispatcher.send(signal="hotword_terminate_detector",
+                            sender=dispatcher.Any)
             while is_session_open():
-                snowboydecoder.play_audio_file()
-                speech_decorator(func)(*kvars, **kwargs)
+                func(*kvars, **kwargs)
+            dispatcher.send(signal="hotword_start_detector",
+                            sender=dispatcher.Any)
 
-        Navi.db.extension_set_func_for_key('hotword', func, 'activation')
-        logger.info("registering {} for hotword_activation".format(func.__name__))
+        dispatcher.connect(wrap_and_call, signal="hotword_activation",
+                           sender=dispatcher.Any)
+        logger.info(
+            "registering {} for hotword_activation".format(func.__name__))
         return wrap_and_call
 
-    return decorator
+    return decorator(func)

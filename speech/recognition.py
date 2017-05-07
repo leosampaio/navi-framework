@@ -3,10 +3,15 @@ import os
 import inspect
 from importlib import import_module
 from enum import Enum
+import logging
+from pydispatch import dispatcher
 
 import speech_recognition as sr
 
 from navi.core import Navi
+from .sounds import play_ding, play_dong, play_ding_dong
+
+logger = logging.getLogger(__name__)
 
 
 class NaviSpeechRecognition(object):
@@ -17,6 +22,12 @@ class NaviSpeechRecognition(object):
         bing = 2
         ibm = 4
 
+    class Status(Enum):
+        unknown = 0
+        success = 1
+        failure = 2
+        timeout = 3
+
     def __init__(self, service, key, language="en-us", username=None):
         self.key = key
         self.service = service
@@ -25,11 +36,38 @@ class NaviSpeechRecognition(object):
 
     def start(self):
 
-        Navi.db.set_secret_for_key('speech_key', self.key)
         Navi.context["speech_key"] = self.key
         Navi.context["speech_service"] = self.service
         Navi.context["speech_language"] = self.language
         Navi.context["speech_username"] = self.username
+
+        # check if hooks have any custom hooks and add our sound effects if not
+        if len(dispatcher.getReceivers(signal="did_not_understand_sound")) == 0:
+            dispatcher.connect(self._did_finish_recog,
+                               signal="did_not_understand_sound")
+        if len(dispatcher.getReceivers(signal="did_fail_sound")) == 0:
+            dispatcher.connect(self._did_finish_recog,
+                               signal="did_fail")
+        if len(dispatcher.getReceivers(signal="did_timeout_sound")) == 0:
+            dispatcher.connect(self._did_timeout_recog,
+                               signal="did_timeout_sound")
+        if len(dispatcher.getReceivers(
+                signal="did_finish_speech_recognition_sound")) == 0:
+            dispatcher.connect(self._did_finish_recog,
+                               signal="did_finish_speech_recognition_sound")
+        if len(dispatcher.getReceivers(
+                signal="did_start_speech_recognition_sound")) == 0:
+            dispatcher.connect(self._did_start_recog,
+                               signal="did_start_speech_recognition_sound")
+
+    def _did_start_recog(self):
+        play_ding()
+
+    def _did_finish_recog(self):
+        play_dong()
+
+    def _did_timeout_recog(self):
+        play_ding_dong()
 
 
 def say(message):
@@ -39,13 +77,13 @@ def say(message):
     call(command)
 
 
-def speech_entry_point(func):
+def message_from_speech(func):
     """Link a method with speech recognition's entry point
 
-    usage: 
+    usage:
     ```
-        >>> from navi.speech.recognition import speech_entry_point
-        >>> @speech_entry_point
+        >>> from navi.speech.recognition import message_from_speech
+        >>> @message_from_speech
         >>> def take_care_of_messages(message, context):
         >>>     ...
     ```
@@ -54,9 +92,28 @@ def speech_entry_point(func):
 
     def decorator(func):
         def wrap_and_call(*kvars, **kwargs):
-            message = _listen_and_convert_to_text()
+            dispatcher.send(signal="did_start_speech_recognition",
+                            sender=dispatcher.Any)
+            dispatcher.send(signal="did_start_speech_recognition_sound")
+            (status, message) = _listen_and_convert_to_text()
+
+            if status == NaviSpeechRecognition.Status.failure:
+                dispatcher.send(signal="did_fail")
+                dispatcher.send(signal="did_fail_sound")
+            elif status == NaviSpeechRecognition.Status.timeout:
+                dispatcher.send(signal="did_timeout")
+                dispatcher.send(signal="did_timeout_sound")
+                return
+            elif status == NaviSpeechRecognition.Status.unknown:
+                dispatcher.send(signal="did_not_understand")
+                dispatcher.send(signal="did_not_understand_sound")
+            elif status == NaviSpeechRecognition.Status.success:
+                dispatcher.send(signal="did_finish_speech_recognition",
+                                status=status,
+                                message=message)
+
             reply_message = func(message, Navi.context)
-            print("Reply: {}".format(reply_message))
+            logger.info("Reply: {}".format(reply_message))
             if reply_message is not None:
                 if isinstance(reply_message, list):
                     for rmessage in reply_message:
@@ -65,8 +122,8 @@ def speech_entry_point(func):
                     say(reply_message)
             return reply_message
 
-        Navi.db.extension_set_func_for_key('speech', func, 'entry_point')
-        print("registering {} for speech entry point".format(func.__name__))
+        logger.info(
+            "registering {} for speech entry point".format(func.__name__))
         return wrap_and_call
 
     return decorator(func)
@@ -74,14 +131,18 @@ def speech_entry_point(func):
 
 def _listen_and_convert_to_text():
     r = sr.Recognizer()
+    r.pause_threshold = 0.5
     audio = None
     with sr.Microphone(sample_rate=16000, chunk_size=1024) as source:
-        print("Invoked Speech Recognition")
+        logger.info("Invoked Speech Recognition")
         try:
-            audio = r.listen(source)
+            audio = r.listen(source, timeout=5)
+        except sr.WaitTimeoutError:
+            return (NaviSpeechRecognition.Status.timeout, None)
         except Exception as e:
-            print(e)
+            logger.exception(e)
 
+    dispatcher.send(signal="did_finish_speech_recognition_sound")
     service = Navi.context["speech_service"]
     key = Navi.context["speech_key"]
     language = Navi.context["speech_language"]
@@ -91,7 +152,6 @@ def _listen_and_convert_to_text():
         username = Navi.context["speech_username"]
     except:
         pass
-    
 
     try:
         if service == NaviSpeechRecognition.Services.google:
@@ -105,10 +165,77 @@ def _listen_and_convert_to_text():
             text = r.recognize_ibm(audio,
                                    username=username,
                                    key=key, language=language)
-        return text.encode('utf-8')
+        return (NaviSpeechRecognition.Status.success, text.encode('utf-8'))
     except sr.UnknownValueError:
-        print("{} could not understand audio".format(service))
+        logger.info("{} could not understand audio".format(service))
+        return (NaviSpeechRecognition.Status.unknown, None)
     except sr.RequestError as e:
-        print("Could not request results from {} service; {}".format(service,
-                                                                     e))
-    return None
+        logger.info("Could not request results from {} service; {}".format(service,
+                                                                           e))
+    return (NaviSpeechRecognition.Status.failure, None)
+
+
+def start_speech_recognition_hook(func):
+    """Link a method with speech recognition's start speech hook
+
+    usage:
+    ```
+        >>> from navi.speech.recognition import start_speech_recognition_hook
+        >>> @start_speech_recognition_hook
+        >>> def play_bing():
+        >>>     ...
+    ```
+
+    """
+
+    def decorator(func):
+
+        dispatcher.connect(func, signal="did_start_speech_recognition")
+        logger.info(
+            "registering {} for speech started hook".format(func.__name__))
+
+    return decorator(func)
+
+
+def finish_speech_recognition_hook(func):
+    """Link a method with speech recognition's finish speech hook
+
+    usage:
+    ```
+        >>> from navi.speech.recognition import finish_speech_recognition_hook
+        >>> @finish_speech_recognition_hook
+        >>> def play_bong():
+        >>>     ...
+    ```
+
+    """
+
+    def decorator(func):
+
+        dispatcher.connect(func, signal="did_finish_speech_recognition")
+        logger.info(
+            "registering {} for speech finished hook".format(func.__name__))
+
+    return decorator(func)
+
+
+def timeout_out_speech_recognition_hook(func):
+    """Link a method with speech recognition's timeout speech hook
+
+    usage:
+    ```
+        >>> from navi.speech.recognition import fail_speech_recognition_hook
+        >>> @fail_speech_recognition_hook
+        >>> def play_puonpuon():
+        >>>     ...
+    ```
+
+    """
+
+    def decorator(func):
+
+        dispatcher.connect(func, signal="did_timeout")
+        logger.info(
+            "registering {} for speech finished hook".format(func.__name__))
+
+    return decorator(func)

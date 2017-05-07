@@ -2,7 +2,9 @@ import uuid
 from importlib import import_module
 import logging
 
+from pydispatch import dispatcher
 from wit import Wit
+
 from navi.core import (Navi, get_handler_for,
                        set_can_close_session, should_close_session,
                        set_session_was_closed)
@@ -26,6 +28,25 @@ class WitConversationalPlatform(object):
         Navi.context["wit_should_close_session"] = False
         Navi.context["wit_messages"] = {}
 
+        # register hooks for messaging shortcomings
+        dispatcher.connect(self._set_did_not_understand,
+                           signal="did_not_understand")
+        dispatcher.connect(self._set_failed_request,
+                           signal="did_fail")
+        dispatcher.connect(self._invalidate_context,
+                           signal="did_timeout")
+
+    def _set_did_not_understand(self):
+        Navi.context["wit_context"]["unknown"] = True
+        Navi.context["wit_context"]["has_used_error_state"] = False
+
+    def _set_failed_request(self):
+        Navi.context["wit_context"]["failed_request"] = True
+        Navi.context["wit_context"]["has_used_error_state"] = False
+
+    def _invalidate_context(self):
+        close_session()
+
 
 def close_session():
     Navi.context["wit_context"] = {}
@@ -39,6 +60,12 @@ def close_session_when_done():
 
 def has_open_session():
     return Navi.context["wit_context"]["session_started"]
+
+
+def _remove_error_state():
+    Navi.context["wit_context"].pop("unknown", None)
+    Navi.context["wit_context"].pop("failed_request", None)
+    Navi.context["wit_context"].pop("has_used_error_state", None)
 
 
 def wit_action(action):
@@ -55,9 +82,9 @@ def wit_action(action):
     """
 
     def decorator(func):
-        Navi.db.extension_set_func_for_key('wit_actions',
-                                           func,
-                                           action)
+        signal = "wit_action_{}".format(action)
+        dispatcher.connect(func, signal=signal,
+                           sender=dispatcher.Any)
         logger.info("registering {} for action '{}'".format(
             func.__name__, action))
         return func
@@ -71,6 +98,10 @@ def parse_message(message, context):
         Navi.context["wit_context"]["session"] = session
         Navi.context["wit_context"]["session_started"] = True
         Navi.context["wit_messages"][session] = []
+    if Navi.context["wit_context"].get("has_used_error_state", None) == False:
+        Navi.context["wit_context"]["has_used_error_state"] = True
+    elif Navi.context["wit_context"].get("has_used_error_state", None) == True:
+        _remove_error_state()
     client = Navi.context['wit_client']
     session = Navi.context["wit_context"]["session"]
     converse_result = client.converse(session,
@@ -78,49 +109,57 @@ def parse_message(message, context):
                                       Navi.context["wit_context"])
     logger.info("Converse Result: %s", converse_result)
     if converse_result['type'] == 'action':
+
+        entities = _simplify_entities_dict(converse_result['entities'])
         action_name = converse_result['action']
 
-        (module_name, func_name) = Navi.db.get_extension_func_for_key(
-            'wit_actions',
-            action_name
-        )
-        try:
-            module = import_module(module_name)
-            func = getattr(module, func_name)
-            entities = _simplify_entities_dict(converse_result['entities'])
-            intent = func(message,
-                          entities,
-                          Navi.context["wit_context"])
+        signal = "wit_action_{}".format(action_name)
+        logger.info("Sent {} signal".format(signal))
+        disp_responses = dispatcher.send(signal=signal, sender=dispatcher.Any,
+                                         message=message,
+                                         entities=entities,
+                                         context=Navi.context["wit_context"])
+        (_, intent) = disp_responses[0]
 
-            # 1. Resolve
-            handler = get_handler_for(intent)
-            resolve_responses = handler.resolve(intent)
-            must_ask = _get_resolve_result_into_context(resolve_responses,
-                                                        intent)
-
-            if must_ask:  # recusivelly call parse until a message is returned
-                return parse_message("", Navi.context["wit_context"])
-
-            # 2. Confirm
-            confirm_response = handler.confirm(intent)
-            is_ready = _get_confirm_result_into_context(confirm_response)
-
-            if not is_ready:
-                return parse_message("", Navi.context["wit_context"])
-
-            # 3. Handle
-            handle_response = handler.handle(intent)
-            _get_handle_result_into_context(handle_response)
-
+        handler = get_handler_for(intent)
+        if handler is None:
+            logger.warning("No handler for intent %s", type(intent).__name__)
             return parse_message("", Navi.context["wit_context"])
 
-        except Exception as e:
-            logger.exception(e)
-    elif converse_result['type'] == 'msg':
+        # 1. Resolve
+        resolve_responses = handler.resolve(intent)
+        must_ask = _get_resolve_result_into_context(resolve_responses,
+                                                    intent)
+
+        if must_ask:  # recusivelly call parse until a message is returned
+            return parse_message("", Navi.context["wit_context"])
+
+        # 2. Confirm
+        confirm_response = handler.confirm(intent)
+        is_ready = _get_confirm_result_into_context(confirm_response)
+
+        if not is_ready:
+            return parse_message("", Navi.context["wit_context"])
+
+        # 3. Handle
+        handle_response = handler.handle(intent)
+        _get_handle_result_into_context(handle_response)
+
+        return parse_message("", Navi.context["wit_context"])
+
+    if converse_result['type'] == 'msg':
+        if ((Navi.context["wit_messages"][session][-1]
+             if len(Navi.context["wit_messages"][session]) != 0
+             else None) == converse_result['msg']):
+            # if message is repeated, wit is on a loop
+            messages = Navi.context["wit_messages"][session]
+            Navi.context["wit_messages"][session] = []
+            return messages
+
         Navi.context["wit_messages"][session].append(converse_result['msg'])
         return parse_message("", Navi.context["wit_context"])
 
-    elif converse_result['type'] == 'stop':
+    if converse_result['type'] == 'stop':
         try:
             if should_close_session():
                 close_session()

@@ -1,6 +1,11 @@
 from importlib import import_module
 import os
 import logging
+import threading
+import signal
+import sys
+
+from pydispatch import dispatcher
 
 from register import Register
 
@@ -37,7 +42,7 @@ class Navi(object):
             logger.propagate = False
             logger.setLevel(logging.DEBUG)
             formatter = logging.Formatter(
-                '%(asctime)s %(name)s \n%(levelname)-12s  %(message)s')
+                '%(asctime)s %(name)s \n%(levelname)-10s  %(message)s')
             ch = logging.StreamHandler()
             ch.setLevel(logging.DEBUG)
             ch.setFormatter(formatter)
@@ -45,10 +50,6 @@ class Navi(object):
 
         self.bot_module = bot_module
 
-        Navi.dbfilename = "{}/../register.db".format(
-            os.path.dirname(bot_module.__file__))
-        Navi.db = Register(Navi.dbfilename)
-        Navi.db.clean()
         Navi.context["should_close_session"] = False
 
         if intent_modules == None:
@@ -87,25 +88,47 @@ class Navi(object):
         platform.
         """
 
+        self.threads = []
+
         for platform in conversational_platforms:
-            platform.start()
+            t = threading.Thread(target=platform.start)
+            t.daemon = True
+            self.threads.append(t)
+            t.start()
 
         for platform in messaging_platforms:
-            platform.start()
+            t = threading.Thread(target=platform.start)
+            t.daemon = True
+            self.threads.append(t)
+            t.start()
 
         for platform in speech_platforms:
-            platform.start()
+            t = threading.Thread(target=platform.start)
+            t.daemon = True
+            self.threads.append(t)
+            t.start()
+
+        self.idle()
+
+    def idle(self):
+        def signal_handler(signal, frame):
+            logger.info("Exiting...")
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        while True:
+            signal.pause()
 
 
 def get_handler_for(intent):
-    try:
-        (module_name, handler_class) = Navi.db.get_handler_for_intent(
-            intent.__class__)
-
-        module = import_module(module_name)
-        Handler = getattr(module, handler_class)
-        return Handler()
-    except:
+    signal = "handler_for_{}".format(type(intent).__name__)
+    logger.info("Sent {} signal".format(signal))
+    responses = dispatcher.send(signal=signal, sender=dispatcher.Any,
+                                intent=intent)
+    if len(responses) > 0:
+        (_, handler) = responses[0]
+        return handler
+    else:
         return None
 
 
