@@ -165,13 +165,14 @@ def _listen_and_convert_to_text():
             text = r.recognize_ibm(audio,
                                    username=username,
                                    key=key, language=language)
+        logger.info("Speech Recognition: %s", text.encode('utf-8'))
         return (NaviSpeechRecognition.Status.success, text.encode('utf-8'))
     except sr.UnknownValueError:
         logger.info("{} could not understand audio".format(service))
         return (NaviSpeechRecognition.Status.unknown, None)
     except sr.RequestError as e:
-        logger.info("Could not request results from {} service; {}".format(service,
-                                                                           e))
+        logger.info(
+            "Could not request results from {} service; {}".format(service, e))
     return (NaviSpeechRecognition.Status.failure, None)
 
 
