@@ -8,6 +8,7 @@ from wit import Wit
 from navi.core import (Navi, get_handler_for,
                        set_can_close_session, should_close_session,
                        set_session_was_closed)
+from navi import context as ctx
 from navi.intents import Intent
 
 
@@ -22,10 +23,7 @@ class WitConversationalPlatform(object):
     def start(self):
 
         self.client = Wit(access_token=self.key)
-        Navi.context['wit_client'] = self.client
-        Navi.context["wit_context"] = {}
-        Navi.context["wit_context"]["session_started"] = False
-        Navi.context["wit_messages"] = {}
+        ctx.general()['wit_client'] = self.client
 
         # register hooks for messaging shortcomings
         dispatcher.connect(self._set_did_not_understand,
@@ -35,16 +33,25 @@ class WitConversationalPlatform(object):
         dispatcher.connect(self._invalidate_context,
                            signal="did_timeout")
 
-    def _set_did_not_understand(self):
-        Navi.context["wit_context"]["unknown"] = True
-        Navi.context["wit_context"]["has_used_error_state"] = False
+        # register hook for context changes
+        dispatcher.connect(self._new_user_context_created,
+                           signal="did_create_new_user_context")
 
-    def _set_failed_request(self):
-        Navi.context["wit_context"]["failed_request"] = True
-        Navi.context["wit_context"]["has_used_error_state"] = False
+    def _set_did_not_understand(self, context):
+        context["wit_context"]["unknown"] = True
+        context["wit_context"]["has_used_error_state"] = False
 
-    def _invalidate_context(self):
-        close_session(Navi.context)
+    def _set_failed_request(self, context):
+        context["wit_context"]["failed_request"] = True
+        context["wit_context"]["has_used_error_state"] = False
+
+    def _new_user_context_created(self, context):
+        context["wit_context"] = {}
+        context["wit_context"]["session_started"] = False
+        context["wit_messages"] = {}
+
+    def _invalidate_context(self, context):
+        close_session(context)
 
 
 def close_session(context):
@@ -57,10 +64,10 @@ def close_session_when_done():
     set_can_close_session()
 
 
-def _remove_error_state():
-    Navi.context["wit_context"].pop("unknown", None)
-    Navi.context["wit_context"].pop("failed_request", None)
-    Navi.context["wit_context"].pop("has_used_error_state", None)
+def _remove_error_state(context):
+    context["wit_context"].pop("unknown", None)
+    context["wit_context"].pop("failed_request", None)
+    context["wit_context"].pop("has_used_error_state", None)
 
 
 def wit_action(action):
@@ -94,13 +101,14 @@ def parse_message(message, context):
         context["wit_context"]["session"] = session
         context["wit_context"]["session_started"] = True
         context["wit_messages"][session] = []
+
     if context["wit_context"].get("has_used_error_state", None) == False:
         context["wit_context"]["has_used_error_state"] = True
     elif context["wit_context"].get("has_used_error_state", None) == True:
-        _remove_error_state()
+        _remove_error_state(context)
 
     logger.info("Context Before Converse: %s", context)
-    client = context['wit_client']
+    client = ctx.general()['wit_client']
     session = context["wit_context"]["session"]
     converse_result = client.converse(session,
                                       message,

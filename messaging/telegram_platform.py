@@ -11,6 +11,7 @@ from telegram import Bot, ParseMode
 from pydispatch import dispatcher
 
 from navi.core import Navi
+from navi import context as ctx
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,9 @@ class Telegram(object):
         self.bot = Bot(token=self.key)
 
         # set context
-        Navi.context["telegram"] = {}
-        Navi.context["telegram"]["key"] = self.key
+        ctx.general()["telegram"] = {}
+        ctx.general()["telegram"]["key"] = self.key
+        ctx.general()["telegram"]["bot"] = self.bot
 
         # set handlers
         tg_msg_handler = MessageHandler(Filters.text,
@@ -54,7 +56,6 @@ class Telegram(object):
         logger.info("Sent {} signal".format(signal))
         dispatcher.send(signal=signal, sender=self,
                         bot=bot, update=update)
-
 
 def reply(bot, user, message):
     """Reply to user infered by context dict."""
@@ -82,9 +83,9 @@ def telegram_entry_point(func):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            Navi.context["telegram"]["user"] = update.message.chat_id
+            context = ctx.for_user(update.message.chat_id)
             dispatcher.send(signal="did_receive_text_message")
-            reply_message = func(message, Navi.context)
+            reply_message = func(message, context)
             dispatcher.send(signal="did_generate_text_reply")
             if reply_message is not None:
                 if isinstance(reply_message, list):
@@ -119,9 +120,9 @@ def telegram_command(command):
     def decorator(func):
         def wrap_and_call(bot, update):
             message = update.message.text
-            Navi.context["telegram"]["user"] = update.message.chat_id
+            context = ctx.for_user(update.message.chat_id)
             dispatcher.send(signal="did_receive_text_message")
-            reply_message = func(message, Navi.context)
+            reply_message = func(message, context)
             dispatcher.send(signal="did_generate_text_reply")
             if reply_message is not None:
                 reply(bot, update.message.chat_id, reply_message)

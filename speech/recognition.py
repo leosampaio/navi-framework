@@ -9,6 +9,7 @@ from pydispatch import dispatcher
 import speech_recognition as sr
 
 from navi.core import Navi
+from navi import context
 from .sounds import play_ding, play_dong, play_ding_dong
 
 logger = logging.getLogger(__name__)
@@ -97,22 +98,25 @@ def message_from_speech(func):
             dispatcher.send(signal="did_start_speech_recognition_sound")
             (status, message) = _listen_and_convert_to_text()
 
+            user_context = context.for_user(kwargs.setdefault("user"))
+
             if status == NaviSpeechRecognition.Status.failure:
-                dispatcher.send(signal="did_fail")
+                dispatcher.send(signal="did_fail", context=user_context)
                 dispatcher.send(signal="did_fail_sound")
             elif status == NaviSpeechRecognition.Status.timeout:
-                dispatcher.send(signal="did_timeout")
+                dispatcher.send(signal="did_timeout", context=user_context)
                 dispatcher.send(signal="did_timeout_sound")
                 return
             elif status == NaviSpeechRecognition.Status.unknown:
-                dispatcher.send(signal="did_not_understand")
+                dispatcher.send(signal="did_not_understand", context=user_context)
                 dispatcher.send(signal="did_not_understand_sound")
             elif status == NaviSpeechRecognition.Status.success:
                 dispatcher.send(signal="did_finish_speech_recognition",
                                 status=status,
-                                message=message)
+                                message=message,
+                                context=user_context)
 
-            reply_message = func(message, Navi.context)
+            reply_message = func(message, user_context)
             logger.info("Reply: {}".format(reply_message))
             if reply_message is not None:
                 if isinstance(reply_message, list):
@@ -123,7 +127,7 @@ def message_from_speech(func):
             return reply_message
 
         logger.info(
-            "registering {} for speech entry point".format(func.__name__))
+            "registering {} for speech recog".format(func.__name__))
         return wrap_and_call
 
     return decorator(func)

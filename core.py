@@ -7,8 +7,6 @@ import sys
 
 from pydispatch import dispatcher
 
-from register import Register
-
 logger = logging.getLogger("navi")
 
 
@@ -51,6 +49,7 @@ class Navi(object):
         self.bot_module = bot_module
 
         Navi.context["should_close_session"] = False
+        Navi.context["users"] = {}
 
         if intent_modules == None:
             import_module('.intents', bot_module.__name__)
