@@ -3,3 +3,4 @@
 env
 config*.ini
 .DS_Store
+navi.egg-info/
