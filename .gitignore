@@ -6,5 +6,4 @@ config*.ini
 navi.egg-info/
 build/
 dist/
-navi/resources/
 _build
