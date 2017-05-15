@@ -7,3 +7,4 @@ navi.egg-info/
 build/
 dist/
 navi/resources/
+_build
