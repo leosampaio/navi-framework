@@ -23,19 +23,19 @@ def play_sound_file(sound_file):
 
 def play_ding():
     play_sound_file(os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), "resources/ding.wav"))
+        os.path.realpath(__file__)), "../resources/sounds/ding.wav"))
 
 
 def play_dong():
     play_sound_file(os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), "resources/dong.wav"))
+        os.path.realpath(__file__)), "../resources/sounds/dong.wav"))
 
 
 def play_ding_dong():
     ding_wav = wave.open(os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), "resources/dong.wav"), 'rb')
+        os.path.realpath(__file__)), "../resources/sounds/dong.wav"), 'rb')
     dong_wav = wave.open(os.path.join(os.path.dirname(
-        os.path.realpath(__file__)), "resources/dong.wav"), 'rb')
+        os.path.realpath(__file__)), "../resources/sounds/dong.wav"), 'rb')
     ding_data = ding_wav.readframes(ding_wav.getnframes())
     dong_data = dong_wav.readframes(dong_wav.getnframes())
     audio = pyaudio.PyAudio()

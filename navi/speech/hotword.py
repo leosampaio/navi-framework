@@ -8,7 +8,7 @@ import logging
 from pydispatch import dispatcher
 
 from navi.core import Navi, is_session_open, open_session
-from navi.speech.snowboy import snowboydecoder
+from navi.speech import snowboywrapper
 
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,7 @@ class SnowboyHotwordDetector(object):
         dispatcher.connect(self._start_detector,
                            signal="hotword_start_detector",
                            sender=dispatcher.Any)
-
-        self.detector = snowboydecoder.HotwordDetector(
+        self.detector = snowboywrapper.HotwordDetector(
             self.model, sensitivity=0.5)
 
         self._start_detector()

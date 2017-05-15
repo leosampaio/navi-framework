@@ -1,24 +1,25 @@
 import collections
-import pyaudio
-import snowboydetect
 import time
-import wave
 import os
 import logging
+
+from snowboy import snowboydetect
+from snowboy.snowboydecoder import RESOURCE_FILE
+import pyaudio
 
 logging.basicConfig()
 logger = logging.getLogger("snowboy")
 logger.setLevel(logging.INFO)
 TOP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-RESOURCE_FILE = os.path.join(TOP_DIR, "resources/common.res")
-DETECT_DING = os.path.join(TOP_DIR, "resources/ding.wav")
-DETECT_DONG = os.path.join(TOP_DIR, "resources/dong.wav")
+DETECT_DING = os.path.join(TOP_DIR, "../resources/sounds/ding.wav")
+DETECT_DONG = os.path.join(TOP_DIR, "../resources/sounds/dong.wav")
 
 
 class RingBuffer(object):
     """Ring buffer to hold audio from PortAudio"""
-    def __init__(self, size = 4096):
+
+    def __init__(self, size=4096):
         self._buf = collections.deque(maxlen=size)
 
     def extend(self, data):
@@ -30,28 +31,6 @@ class RingBuffer(object):
         tmp = bytes(bytearray(self._buf))
         self._buf.clear()
         return tmp
-
-
-def play_audio_file(fname=DETECT_DING):
-    """Simple callback function to play a wave file. By default it plays
-    a Ding sound.
-
-    :param str fname: wave file name
-    :return: None
-    """
-    ding_wav = wave.open(fname, 'rb')
-    ding_data = ding_wav.readframes(ding_wav.getnframes())
-    audio = pyaudio.PyAudio()
-    stream_out = audio.open(
-        format=audio.get_format_from_width(ding_wav.getsampwidth()),
-        channels=ding_wav.getnchannels(),
-        rate=ding_wav.getframerate(), input=False, output=True)
-    stream_out.start_stream()
-    stream_out.write(ding_data)
-    time.sleep(0.2)
-    stream_out.stop_stream()
-    stream_out.close()
-    audio.terminate()
 
 
 class HotwordDetector(object):
@@ -67,6 +46,7 @@ class HotwordDetector(object):
                               default sensitivity in the model will be used.
     :param audio_gain: multiply input volume by this factor.
     """
+
     def __init__(self, decoder_model,
                  resource=RESOURCE_FILE,
                  sensitivity=[],
@@ -86,7 +66,7 @@ class HotwordDetector(object):
         self.num_hotwords = self.detector.NumHotwords()
 
         if len(decoder_model) > 1 and len(sensitivity) == 1:
-            sensitivity = sensitivity*self.num_hotwords
+            sensitivity = sensitivity * self.num_hotwords
         if len(sensitivity) != 0:
             assert self.num_hotwords == len(sensitivity), \
                 "number of hotwords in decoder_model (%d) and sensitivity " \
@@ -98,8 +78,7 @@ class HotwordDetector(object):
         self.ring_buffer = RingBuffer(
             self.detector.NumChannels() * self.detector.SampleRate() * 5)
 
-
-    def start(self, detected_callback=play_audio_file,
+    def start(self, detected_callback=lambda x: None,
               interrupt_check=lambda: False,
               sleep_time=0.03):
         """
@@ -137,7 +116,6 @@ class HotwordDetector(object):
             frames_per_buffer=2048,
             stream_callback=audio_callback)
 
-
         tc = type(detected_callback)
         if tc is not list:
             detected_callback = [detected_callback]
@@ -161,13 +139,14 @@ class HotwordDetector(object):
 
             ans = self.detector.RunDetection(data)
             if ans == -1:
-                logger.warning("Error initializing streams or reading audio data")
+                logger.warning(
+                    "Error initializing streams or reading audio data")
             elif ans > 0:
                 message = "Keyword " + str(ans) + " detected at time: "
                 message += time.strftime("%Y-%m-%d %H:%M:%S",
                                          time.localtime(time.time()))
                 logger.info(message)
-                callback = detected_callback[ans-1]
+                callback = detected_callback[ans - 1]
                 if callback is not None:
                     callback()
 
@@ -175,7 +154,7 @@ class HotwordDetector(object):
 
     def terminate(self):
         """
-        Terminate audio stream. Users cannot call start() again to detect.
+        Terminate audio stream.
         :return: None
         """
         self.stream_in.stop_stream()
