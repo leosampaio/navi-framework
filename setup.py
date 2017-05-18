@@ -16,12 +16,21 @@ setup(name='navi',
                   ('navi/resources/sounds', ['navi/resources/sounds/ding.wav',
                                              'navi/resources/sounds/dong.wav',
                                              ])],
-      install_requires=['enum34==1.1.6',
-                        'PyAudio==0.2.11',
-                        'PyDispatcher==2.0.5',
-                        'python-telegram-bot==5.3.1',
-                        'requests==2.13.0',
-                        'snowboy==1.2',
-                        'SpeechRecognition==3.6.5',
-                        'wit==4.2.0'],
+      entry_points={
+          'console_scripts': ['navi-create=navi.core:navi_create_command'],
+      },
+      install_requires=[
+          'enum34==1.1.6',
+          'PyDispatcher==2.0.5'],
+      extras_require={
+          'SpeechRecognition':  [
+              "PyAudio==0.2.11",
+              "SpeechRecognition==3.6.5"],
+          'HotwordDetection': [
+              "PyAudio==0.2.11",
+              "snowboy==1.2.0"],
+          'Telegram': ["python-telegram-bot==5.3.1"],
+          'Wit': ["wit==4.2.0"]},
+      dependency_links=[
+          'https://github.com/Kitt-AI/snowboy/tarball/master#snowboy-1.2.0']
       )
