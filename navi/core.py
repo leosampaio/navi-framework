@@ -4,7 +4,6 @@ import logging
 import threading
 import signal
 import sys
-import argparse
 
 from pydispatch import dispatcher
 
@@ -156,12 +155,3 @@ def open_session():
 
 def is_session_open():
     return Navi.context["is_session_open"]
-
-
-def navi_create_command():
-    parser = argparse.ArgumentParser(
-        description="Create bots with navi's magic")
-    parser.add_argument('bot_name')
-    args = parser.parse_args()
-
-    print(args.bot_name)
