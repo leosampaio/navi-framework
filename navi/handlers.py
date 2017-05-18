@@ -63,7 +63,6 @@ class IntentHandler(object):
         and to verify that you are ready to handle the intent
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
-        :param context: a dictionary describing current context
         """
         return Intent.ConfirmResponse.ready
 
@@ -72,7 +71,6 @@ class IntentHandler(object):
         """Execute intended action and return result
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
-        :param context: a dictionary describing current context
         :rtype: A dictionary with all values that the developer wants exposed
         to the interface regarding the task handling
         """
