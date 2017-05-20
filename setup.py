@@ -17,7 +17,7 @@ setup(name='navi',
                                              'navi/resources/sounds/dong.wav',
                                              ])],
       entry_points={
-          'console_scripts': ['navi-create=navi.core:navi_create_command'],
+          'console_scripts': ['navi-create=navi.commands:navi_create_command'],
       },
       install_requires=[
           'enum34==1.1.6',
