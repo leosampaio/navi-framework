@@ -2,6 +2,7 @@ include LICENSE.txt
 include MANIFEST.in
 include README.md
 
+recursive-include navi/templates *.tpl
 recursive-include navi *
 recursive-include docs *
 global-exclude *pyc
