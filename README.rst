@@ -1,21 +1,14 @@
-.. navi framework documentation master file, created by
-   sphinx-quickstart on Mon May 15 01:19:48 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 
-.. image:: ./navi_framework_v1_thin.png
-    :width: 60%
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+.. image:: https://raw.githubusercontent.com/leosampaio/navi-framework/master/navi/resources/logo/navi_framework_v1_thin.png
+    :width: 50%
 
 |
-|
-|
 
-Welcome to Navi framework's documentation!
-==========================================
+Navi Framework's README
+=======================
+|License| |Python|
+    .. |License| image:: https://img.shields.io/pypi/l/Django.svg
+    .. |Python| image:: https://img.shields.io/badge/python-2.7-blue.svg
 
 Navi is an open and free high-level framework that aims to make
 building smart chatbots and personal assistants easy, friction-less and fun. 
@@ -26,7 +19,6 @@ necessary services into a consistent and fluid architecture to help you reach th
 
 Currently, Navi is compatible with **Python 2.7**, but support for Python > 3 is planned.
 
----------------------------------------------------------------------------------------------
 
 Guiding Principles
 ------------------
@@ -48,9 +40,6 @@ Guiding Principles
     should be an easy task and done constantly.
 
 
----------------------------------------------------------------------------------------------
-
-
 Install
 ----------------------------
 
@@ -66,10 +55,8 @@ the install command, like so::
 
     pip install navi[SpeechRecognition, HotwordDetection, Telegram, Wit]
 
----------------------------------------------------------------------------------------------
 
-5min Starting Guides
+Documentation
 ----------------------------
 
-Coming soon...
-
+Head over to the complete documentation, including some great guides, at `navi-framework.readthedocs.io <http://navi-framework.readthedocs.io>`_
