@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(name='navi',
-      version='0.1.0a17',
+      version='0.1.0a19',
       packages=find_packages(),
       author='Leonardo Sampaio Ferraz Ribeiro',
       author_email='leo.sampaio.ferraz.ribeiro@gmail.com',
@@ -11,7 +11,8 @@ setup(name='navi',
       keywords="navi assistant bot chatbot framework",
       url="https://github.com/leosampaio/navi-framework",
       zip_safe=False,
-      package_data={'': ['README.rst', 'LICENSE.txt', 'templates/*.tpl']},
+      package_data={'': ['README.rst', 'LICENSE.txt', 'templates/*.tpl',
+                         'resources/sounds/*.wav']},
       data_files=[('.', ['README.rst', 'LICENSE.txt']),
                   ('navi/resources/sounds', ['navi/resources/sounds/ding.wav',
                                              'navi/resources/sounds/dong.wav',
@@ -28,9 +29,7 @@ setup(name='navi',
               "SpeechRecognition==3.6.5"],
           'HotwordDetection': [
               "PyAudio==0.2.11",
-              "snowboy==1.2.0"],
+              "snowboy"],
           'Telegram': ["python-telegram-bot==5.3.1"],
-          'Wit': ["wit==4.2.0"]},
-      dependency_links=[
-          'https://github.com/Kitt-AI/snowboy/tarball/master#snowboy-1.2.0']
+          'Wit': ["wit==4.2.0"]}
       )

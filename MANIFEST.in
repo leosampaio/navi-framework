@@ -3,8 +3,10 @@ include MANIFEST.in
 include README.rst
 
 recursive-include navi/templates *.tpl
+recursive-include navi/resources *
 recursive-include navi *
 recursive-exclude docs *
 global-exclude *pyc
 global-exclude .project
 global-exclude .pydevproject
+global-exclude .DS_Store
