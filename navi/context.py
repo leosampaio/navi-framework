@@ -21,3 +21,13 @@ def for_user(user_id):
 
 def general():
     return Navi.context
+
+
+def clean_user_context(user_id):
+    users_dict = Navi.context["users"]
+
+    if user_id is None:
+        user_id = 'any'
+
+    users_dict[user_id] = {}
+    users_dict[user_id]["user"] = user_id
