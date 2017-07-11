@@ -30,8 +30,9 @@ class ConversationalResponse(object):
         self.original_res = original_res
 
     def __str__(self):
-        return ("\naction: {}\nentities: {}"
-                "\nmessages: {}\nready: {}").format(self.action,
+        return ("ConversationalResponse: "
+                "\n\taction: \t{}\n\tentities: \t{}"
+                "\n\tmessages: \t{}\n\tready to send: \t{}").format(self.action,
                                                    self.entities,
                                                    self.messages,
                                                    self.ready)
@@ -46,9 +47,9 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
     # check if there is an open session and start one if not
     if not context.setdefault("session_started", False):
         session = str(uuid.uuid1())
-        context["session"] = session
+        context["session_number"] = session
         context["session_started"] = True
-    session = context["session"]  # get current open session
+    session = context["session_number"]  # get current open session
 
     logger.info("Context Before Converse: %s", context)
 

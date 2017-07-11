@@ -64,11 +64,13 @@ class WitConversationalPlatform(object):
                                               message,
                                               context)
 
-            logger.info("Converse Result: %s", converse_result)
+            logger.info("%s", converse_result)
+
+            entities.update(
+                _simplify_entities_dict(converse_result['entities']))
 
             if converse_result['type'] == 'action':
 
-                entities = _simplify_entities_dict(converse_result['entities'])
                 action_name = converse_result['action']
 
                 response = ConversationalResponse(action=action_name,

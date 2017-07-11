@@ -21,6 +21,7 @@ class Navi(object):
                  intent_modules=None,
                  handler_modules=None,
                  interface_modules=None,
+                 action_modules=None,
                  debug=False):
         """Initialize Navi instance with your bot modules
 
@@ -80,6 +81,16 @@ class Navi(object):
                 except ImportError:
                     raise ImportError(
                         "Can't import interface module {}".format(module))
+
+        if action_modules == None:
+            import_module('.actions', bot_module.__name__)
+        else:
+            for module in action_modules:
+                try:
+                    import module
+                except ImportError:
+                    raise ImportError(
+                        "Can't import conversational module {}".format(module))
 
     def start(self, messaging_platforms=[], conversational_platforms=[],
               speech_platforms=[]):
