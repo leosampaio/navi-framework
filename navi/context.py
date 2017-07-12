@@ -18,6 +18,18 @@ def for_user(user_id):
                         context=users_dict[user_id])
         return users_dict[user_id]
 
+def for_user_metadata(user_id):
+    users_dict = Navi.context["users_metadata"]
+
+    if user_id is None:
+        user_id = 'any'
+
+    if user_id in users_dict:
+        return users_dict[user_id]
+    else:
+        users_dict[user_id] = {}
+        users_dict[user_id]["user"] = user_id
+        return users_dict[user_id]
 
 def general():
     return Navi.context

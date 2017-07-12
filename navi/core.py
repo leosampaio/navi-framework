@@ -1,4 +1,5 @@
 from importlib import import_module
+import abc
 import os
 import logging
 import threading
@@ -7,7 +8,7 @@ import sys
 
 from pydispatch import dispatcher
 
-logger = logging.getLogger("navi")
+logger = logging.getLogger('navi')
 
 
 class Navi(object):
@@ -51,6 +52,7 @@ class Navi(object):
 
         Navi.context["should_close_session"] = False
         Navi.context["users"] = {}
+        Navi.context["users_metadata"] = {}
 
         if intent_modules == None:
             import_module('.intents', bot_module.__name__)
@@ -166,3 +168,90 @@ def open_session():
 
 def is_session_open():
     return Navi.context["is_session_open"]
+
+
+class NaviEntryPoint(object):
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, name):
+        self.name = name
+        logger.info("registering entry point '{}'".format(name))
+        signal = "entry_point_named_{}".format(name)
+        dispatcher.connect(self._get_self_reference, signal=signal,
+                           sender=dispatcher.Any)
+
+    def _get_self_reference(self):
+        return self
+
+    @abc.abstractmethod
+    def build_request(self, *kvars, **kwargs):
+        pass
+
+    @abc.abstractmethod
+    def build_response(self, *kvars, **kwargs):
+        pass
+
+    @abc.abstractmethod
+    def start(self):
+        pass
+
+
+class NaviRequest(object):
+
+    __metaclass__ = abc.ABCMeta
+
+    def __init__(self, message, user_id):
+        self.message = message
+        self.user_id = user_id
+
+
+class NaviResponse(object):
+
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def reply(self, message):
+        pass
+
+
+def entry_point(entry_point_name):
+
+    def decorator(func):
+        def wrap_and_call(*kvars, **kwargs):
+
+            # get assigned entry point object
+            signal = "entry_point_named_{}".format(entry_point_name)
+            disp_responses = dispatcher.send(signal=signal,
+                                             sender=dispatcher.Any)
+
+            (_, entry_point_obj) = disp_responses[0]
+
+            # create general req and res objects
+            request = entry_point_obj.build_request(*kvars, **kwargs)
+            response = entry_point_obj.build_response(*kvars, **kwargs)
+
+            import context as ctx
+            context = ctx.for_user(request.user_id)
+            metadata = ctx.for_user_metadata(request.user_id)
+            metadata['response'] = response
+
+            reply_message = func(request.message, context)
+
+            if reply_message is not None:
+                if isinstance(reply_message, list):
+                    for message in reply_message:
+                        response.reply(message)
+                else:
+                    response.reply(reply_message)
+            return reply_message
+
+        callback_signal = "cb_for_entry_point_{}".format(entry_point_name)
+        dispatcher.connect(wrap_and_call,
+                           signal=callback_signal,
+                           sender=dispatcher.Any)
+        logger.info("registering {} for entry point '{}'".format(
+            func.__name__, entry_point_name))
+        return wrap_and_call
+
+    return decorator

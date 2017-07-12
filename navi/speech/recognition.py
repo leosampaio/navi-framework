@@ -8,14 +8,14 @@ from pydispatch import dispatcher
 
 import speech_recognition as sr
 
-from navi.core import Navi
+from navi.core import Navi, NaviEntryPoint
 from navi import context
 from .sounds import play_ding, play_dong, play_ding_dong
 
 logger = logging.getLogger(__name__)
 
 
-class NaviSpeechRecognition(object):
+class NaviSpeechRecognition(NaviEntryPoint):
 
     class Services(Enum):
         google = 0
@@ -29,7 +29,9 @@ class NaviSpeechRecognition(object):
         failure = 2
         timeout = 3
 
-    def __init__(self, service, key, language="en-us", username=None):
+    def __init__(self, name, service, key, language="en-us", username=None):
+        super(NaviSpeechRecognition, self).__init__(name)
+
         self.key = key
         self.service = service
         self.language = language
@@ -69,6 +71,12 @@ class NaviSpeechRecognition(object):
 
     def _did_timeout_recog(self):
         play_ding_dong()
+
+    def build_request(self):
+        pass
+
+    def build_response(self):
+        pass
 
 
 def say(message):
