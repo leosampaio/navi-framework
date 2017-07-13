@@ -8,14 +8,14 @@ from pydispatch import dispatcher
 
 import speech_recognition as sr
 
-from navi.core import Navi
+from navi.core import Navi, NaviEntryPoint, NaviRequest, NaviResponse
 from navi import context
 from .sounds import play_ding, play_dong, play_ding_dong
 
 logger = logging.getLogger(__name__)
 
 
-class NaviSpeechRecognition(object):
+class NaviSpeechRecognition(NaviEntryPoint):
 
     class Services(Enum):
         google = 0
@@ -29,7 +29,9 @@ class NaviSpeechRecognition(object):
         failure = 2
         timeout = 3
 
-    def __init__(self, service, key, language="en-us", username=None):
+    def __init__(self, name, service, key, language="en-us", username=None):
+        super(NaviSpeechRecognition, self).__init__(name)
+
         self.key = key
         self.service = service
         self.language = language
@@ -70,6 +72,48 @@ class NaviSpeechRecognition(object):
     def _did_timeout_recog(self):
         play_ding_dong()
 
+    def build_request(self, *kvars, **kwargs):
+        return NaviSpeechRecognitionRequest(kwargs.setdefault("user_id"))
+        
+    def build_response(self, *kvars, **kwargs):
+        return NaviSpeechRecognitionResponse()
+
+
+class NaviSpeechRecognitionRequest(NaviRequest):
+
+    def __init__(self, user_id):
+        dispatcher.send(signal="did_start_speech_recognition",
+                        sender=dispatcher.Any)
+        dispatcher.send(signal="did_start_speech_recognition_sound")
+        (status, message) = _listen_and_convert_to_text()
+
+        user_context = context.for_user(user_id)
+
+        if status == NaviSpeechRecognition.Status.failure:
+            dispatcher.send(signal="did_fail", context=user_context)
+            dispatcher.send(signal="did_fail_sound")
+        elif status == NaviSpeechRecognition.Status.timeout:
+            dispatcher.send(signal="did_timeout", context=user_context)
+            dispatcher.send(signal="did_timeout_sound")
+            return
+        elif status == NaviSpeechRecognition.Status.unknown:
+            dispatcher.send(signal="did_not_understand",
+                            context=user_context)
+            dispatcher.send(signal="did_not_understand_sound")
+        elif status == NaviSpeechRecognition.Status.success:
+            dispatcher.send(signal="did_finish_speech_recognition",
+                            status=status,
+                            message=message,
+                            context=user_context)
+
+        super(NaviSpeechRecognitionRequest, self).__init__(message, user_id)
+
+
+class NaviSpeechRecognitionResponse(NaviResponse):
+
+    def reply(self, message):
+        say(message)
+
 
 def say(message):
     """TEMPORARY MACOS DEPENDENCY. HARDCODED VOICE AND COMMAND"""
@@ -108,7 +152,8 @@ def message_from_speech(func):
                 dispatcher.send(signal="did_timeout_sound")
                 return
             elif status == NaviSpeechRecognition.Status.unknown:
-                dispatcher.send(signal="did_not_understand", context=user_context)
+                dispatcher.send(signal="did_not_understand",
+                                context=user_context)
                 dispatcher.send(signal="did_not_understand_sound")
             elif status == NaviSpeechRecognition.Status.success:
                 dispatcher.send(signal="did_finish_speech_recognition",

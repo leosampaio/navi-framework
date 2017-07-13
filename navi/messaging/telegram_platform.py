@@ -10,28 +10,23 @@ from telegram.ext import (Updater, MessageHandler, CommandHandler,
 from telegram import Bot, ParseMode
 from pydispatch import dispatcher
 
-from navi.core import Navi
+from navi.core import Navi, NaviEntryPoint, NaviRequest, NaviResponse
 from navi import context as ctx
 
 logger = logging.getLogger(__name__)
 
 
-class Telegram(object):
+class Telegram(NaviEntryPoint):
 
-    def __init__(self, key):
+    def __init__(self, name, key):
+        super(Telegram, self).__init__(name)
+
         self.key = key
-
-    def start(self):
-        """Start Telegram Pooling (for development)"""
-
-        # initialize
         self.updater = Updater(self.key)
         self.bot = Bot(token=self.key)
 
-        # set context
-        ctx.general()["telegram"] = {}
-        ctx.general()["telegram"]["key"] = self.key
-        ctx.general()["telegram"]["bot"] = self.bot
+    def start(self):
+        """Start Telegram Pooling (for development)"""
 
         # set handlers
         tg_msg_handler = MessageHandler(Filters.text,
@@ -47,7 +42,8 @@ class Telegram(object):
             time.sleep(1)
 
     def _send_entry_point_signal(self, bot, update):
-        dispatcher.send(signal="telegram_entry_point", sender=self,
+        callback_signal = "cb_for_entry_point_{}".format(self.name)
+        dispatcher.send(signal=callback_signal, sender=self,
                         bot=bot, update=update)
 
     def _send_command_signal(self, bot, update):
@@ -56,6 +52,26 @@ class Telegram(object):
         logger.info("Sent {} signal".format(signal))
         dispatcher.send(signal=signal, sender=self,
                         bot=bot, update=update)
+
+    def build_request(self, bot, update, **kwargs):
+        return TelegramRequest(update.message.text, update.message.chat_id)
+
+    def build_response(self, bot, update, **kwargs):
+        return TelegramResponse(bot, update)
+
+
+class TelegramRequest(NaviRequest):
+    pass
+
+class TelegramResponse(NaviResponse):
+
+    def __init__(self, bot, update):
+        self.bot = bot
+        self.update = update
+
+    def reply(self, message):
+        reply(self.bot, self.update.message.chat_id, message)
+
 
 def reply(bot, user, message):
     """Reply to user infered by context dict."""

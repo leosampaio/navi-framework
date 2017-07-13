@@ -10,7 +10,7 @@ from navi.core import (Navi, get_handler_for,
                        set_session_was_closed)
 from navi import context as ctx
 from navi.intents import Intent
-
+from . import ConversationalResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class WitConversationalPlatform(object):
     def start(self):
 
         self.client = Wit(access_token=self.key)
+        ctx.general()['wit_ai'] = self
         ctx.general()['wit_client'] = self.client
 
         # register hooks for messaging shortcomings
@@ -38,20 +39,64 @@ class WitConversationalPlatform(object):
                            signal="did_create_new_user_context")
 
     def _set_did_not_understand(self, context):
-        context["wit_context"]["unknown"] = True
-        context["wit_context"]["has_used_error_state"] = False
+        context["unknown"] = True
+        context["has_used_error_state"] = False
 
     def _set_failed_request(self, context):
-        context["wit_context"]["failed_request"] = True
-        context["wit_context"]["has_used_error_state"] = False
+        context["failed_request"] = True
+        context["has_used_error_state"] = False
 
     def _new_user_context_created(self, context):
-        context["wit_context"] = {}
-        context["wit_context"]["session_started"] = False
-        context["wit_messages"] = {}
+        context["session_started"] = False
 
     def _invalidate_context(self, context):
         close_session(context)
+
+    def parser(self, session, message, context):
+
+        client = self.client
+        messages, entities, action_name = [], {}, None
+
+        # the parser should parse "forever"
+        while True:
+
+            converse_result = client.converse(session,
+                                              message,
+                                              context)
+
+            logger.info("%s", converse_result)
+
+            entities.update(
+                _simplify_entities_dict(converse_result['entities']))
+
+            if converse_result['type'] == 'action':
+
+                action_name = converse_result['action']
+
+                response = ConversationalResponse(action=action_name,
+                                                  entities=entities,
+                                                  messages=[],
+                                                  ready=False,
+                                                  original_res=converse_result)
+                yield response
+
+            if converse_result['type'] == 'msg':
+
+                if ((messages[-1] if len(messages) != 0 else None)
+                        == converse_result['msg']):
+                    # if message is repeated, wit is on a loop
+                    converse_result['type'] = 'stop'
+                else:
+                    messages.append(converse_result['msg'])
+
+            if converse_result['type'] == 'stop':
+
+                response = ConversationalResponse(action=action_name,
+                                                  entities=entities,
+                                                  messages=messages,
+                                                  ready=True,
+                                                  original_res=converse_result)
+                yield response
 
 
 def close_session(context):
