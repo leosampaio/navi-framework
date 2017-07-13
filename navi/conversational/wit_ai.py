@@ -64,10 +64,15 @@ class WitConversationalPlatform(object):
                                               message,
                                               context)
 
-            logger.info("%s", converse_result)
+            if message != "":
+                message = ""
 
-            entities.update(
-                _simplify_entities_dict(converse_result['entities']))
+            logger.info("Context Before Converse: %s\n", context)
+            logger.info("Converse Result: %s", converse_result)
+
+            if 'entities' in converse_result:
+                entities.update(
+                    _simplify_entities_dict(converse_result['entities']))
 
             if converse_result['type'] == 'action':
 
@@ -79,6 +84,7 @@ class WitConversationalPlatform(object):
                                                   ready=False,
                                                   original_res=converse_result)
                 yield response
+                continue
 
             if converse_result['type'] == 'msg':
 
@@ -89,6 +95,8 @@ class WitConversationalPlatform(object):
                 else:
                     messages.append(converse_result['msg'])
 
+                continue
+
             if converse_result['type'] == 'stop':
 
                 response = ConversationalResponse(action=action_name,
@@ -97,6 +105,7 @@ class WitConversationalPlatform(object):
                                                   ready=True,
                                                   original_res=converse_result)
                 yield response
+                continue
 
 
 def close_session(context):

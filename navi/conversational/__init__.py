@@ -51,8 +51,6 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
         context["session_started"] = True
     session = context["session_number"]  # get current open session
 
-    logger.info("Context Before Converse: %s", context)
-
     # reference to conversational platform of choice
     chosen_platform = None
     if platform == ConversationalPlatform.wit_ai:
