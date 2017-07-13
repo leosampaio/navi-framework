@@ -9,7 +9,6 @@ from navi.core import (Navi, get_handler_for,
                        set_session_was_closed)
 from navi import context as ctx
 from navi.intents import Intent
-from navi.context import clean_user_context
 
 
 logger = logging.getLogger(__name__)
@@ -32,10 +31,11 @@ class ConversationalResponse(object):
     def __str__(self):
         return ("ConversationalResponse: "
                 "\n\taction: \t{}\n\tentities: \t{}"
-                "\n\tmessages: \t{}\n\tready to send: \t{}").format(self.action,
-                                                   self.entities,
-                                                   self.messages,
-                                                   self.ready)
+                "\n\tmessages: \t{}\n\tready to send: \t{}"
+                ).format(self.action,
+                         self.entities,
+                         self.messages,
+                         self.ready)
 
 
 class ConversationalPlatform(Enum):
@@ -64,15 +64,16 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
         logger.info("Parser response: %s", response)
 
         if response.ready:
+            ctx.clean_user_error_context(context)
             if should_close_session():
-                clean_user_context(context["user"])
+                ctx.clean_user_context(context)
                 set_session_was_closed()
             return response.messages
 
         if response.action is None:
             return response.messages
 
-        signal = "wit_action_{}".format(response.action)
+        signal = "action_{}".format(response.action)
         logger.info("Sent {} signal".format(signal))
         disp_responses = dispatcher.send(signal=signal,
                                          sender=dispatcher.Any,
@@ -168,3 +169,27 @@ def _get_handle_result_into_context(handle_response, context):
     context.update(handle_response.response_dict)
 
     return context
+
+
+def action(action):
+    """Link a method with an action
+
+    usage: 
+    ```
+        >>> from navi.conversational import action
+        >>> @action('find_music')
+        >>> def find_music(message, entities, context):
+        >>>     ...
+    ```
+
+    """
+
+    def decorator(func):
+        signal = "action_{}".format(action)
+        dispatcher.connect(func, signal=signal,
+                           sender=dispatcher.Any)
+        logger.info("registering {} for action '{}'".format(
+            func.__name__, action))
+        return func
+
+    return decorator

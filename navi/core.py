@@ -149,6 +149,11 @@ def entity_from_entities_or_context(entity_name, entities, context):
     return next((item for item in a if item is not None), None)
 
 
+def find_in_either(entity_name, entities, context):
+    a = [entities.get(entity_name, None), context.get(entity_name, None)]
+    return next((item for item in a if item is not None), None)
+
+
 def set_can_close_session():
     Navi.context["should_close_session"] = True
 

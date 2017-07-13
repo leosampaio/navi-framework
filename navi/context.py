@@ -18,6 +18,7 @@ def for_user(user_id):
                         context=users_dict[user_id])
         return users_dict[user_id]
 
+
 def for_user_metadata(user_id):
     users_dict = Navi.context["users_metadata"]
 
@@ -31,15 +32,36 @@ def for_user_metadata(user_id):
         users_dict[user_id]["user"] = user_id
         return users_dict[user_id]
 
+
 def general():
     return Navi.context
 
 
-def clean_user_context(user_id):
-    users_dict = Navi.context["users"]
+def clean_user_context(context):
 
-    if user_id is None:
-        user_id = 'any'
+    user_id = 'any'
+    if 'user' in context:
+        user_id = context['user']
 
-    users_dict[user_id] = {}
-    users_dict[user_id]["user"] = user_id
+    context = {}
+    context["user"] = user_id
+
+
+def clean_user_error_context(context):
+
+    user_id = 'any'
+    if 'user' in context:
+        user_id = context['user']
+
+    keys_to_remove = []
+    for key in context:
+        error_endings = ('missing', 'failure', 'unsupported', 'ambiguous')
+        if isinstance(key, basestring) and key.endswith(error_endings):
+            keys_to_remove.append(key)
+
+    for k in keys_to_remove:
+        context.pop(k)
+
+
+def close_session_when_done():
+    Navi.context["should_close_session"] = True
