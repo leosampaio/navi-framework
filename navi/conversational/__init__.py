@@ -4,9 +4,7 @@ import logging
 
 from pydispatch import dispatcher
 
-from navi.core import (Navi, get_handler_for,
-                       set_can_close_session, should_close_session,
-                       set_session_was_closed)
+from navi.core import (Navi, get_handler_for)
 from navi import context as ctx
 from navi.intents import Intent
 
@@ -21,11 +19,13 @@ class ConversationalResponse(object):
                  entities={},
                  messages=[],
                  ready=False,
+                 confidence=0,
                  original_res={}):
         self.action = action
         self.entities = entities
         self.messages = messages
         self.ready = ready
+        self.confidence = confidence
         self.original_res = original_res
 
     def __str__(self):
@@ -42,7 +42,10 @@ class ConversationalPlatform(Enum):
     wit_ai = 0
 
 
-def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
+def parse_message(message,
+                  context,
+                  platform=ConversationalPlatform.wit_ai,
+                  confidence_threshold=0.1):
 
     # check if there is an open session and start one if not
     if not context.setdefault("session_started", False):
@@ -63,11 +66,14 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
 
         logger.info("Parser response: %s", response)
 
+        if response.confidence < confidence_threshold:
+            return _parsing_error(message, context)
+
         if response.ready:
             ctx.clean_user_error_context(context)
-            if should_close_session():
+            if ctx.should_close_session(context):
                 ctx.clean_user_context(context)
-                set_session_was_closed()
+                ctx.set_session_was_closed(context)
             return response.messages
 
         if response.action is None:
@@ -80,13 +86,19 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
                                          message=message,
                                          entities=response.entities,
                                          context=context)
+
+        if not disp_responses:
+            logger.warning("No callback for action %s",
+                           response.action)
+            return _parsing_error(message, context)
+
         (_, intent) = disp_responses[0]
 
         handler = get_handler_for(intent)
         if handler is None:
             logger.warning("No handler for intent %s",
                            type(intent).__name__)
-            continue
+            return _parsing_error(message, context)
 
         # 1. Resolve
         resolve_responses = handler.resolve(intent)
@@ -112,6 +124,26 @@ def parse_message(message, context, platform=ConversationalPlatform.wit_ai):
                                                   context)
 
         continue
+
+
+def _parsing_error(message, context):
+
+    ctx.clean_user_error_context(context)
+    ctx.clean_user_context(context)
+    ctx.set_session_was_closed()
+
+    signal = "parsing_error"
+    disp_responses = dispatcher.send(signal=signal,
+                                     sender=dispatcher.Any,
+                                     message=message,
+                                     context=context)
+
+    if not disp_responses:
+        logger.info("No parsing error treatment found")
+        return ""
+    else:
+        (_, message) = disp_responses[0]
+        return message
 
 
 def _get_resolve_result_into_context(resolve_responses, intent, context):
@@ -193,3 +225,16 @@ def action(action):
         return func
 
     return decorator
+
+
+def parsing_error(func):
+
+    def decorator(func):
+        signal = "parsing_error"
+        dispatcher.connect(func, signal=signal,
+                           sender=dispatcher.Any)
+        logger.info("registering {} for parsing error".format(
+            func.__name__))
+        return func
+
+    return decorator(func)

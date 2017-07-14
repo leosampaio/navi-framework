@@ -94,6 +94,9 @@ class Navi(object):
                     raise ImportError(
                         "Can't import conversational module {}".format(module))
 
+        dispatcher.connect(self._new_user_context_created,
+                           signal="did_create_new_user_context")
+
     def start(self, messaging_platforms=[], conversational_platforms=[],
               speech_platforms=[]):
         """Start bot in development mode, if available for chosen messaging
@@ -131,6 +134,10 @@ class Navi(object):
         while True:
             signal.pause()
 
+    def _new_user_context_created(self, context):
+        context["session_started"] = False
+        context["should_close_session"] = False
+
 
 def get_handler_for(intent):
     signal = "handler_for_{}".format(type(intent).__name__)
@@ -154,24 +161,24 @@ def find_in_either(entity_name, entities, context):
     return next((item for item in a if item is not None), None)
 
 
-def set_can_close_session():
+def _set_can_close_session():
     Navi.context["should_close_session"] = True
 
 
-def should_close_session():
+def _should_close_session():
     return Navi.context["should_close_session"]
 
 
-def set_session_was_closed():
+def _set_session_was_closed():
     Navi.context["is_session_open"] = False
     Navi.context["should_close_session"] = False
 
 
-def open_session():
+def _open_session():
     Navi.context["is_session_open"] = True
 
 
-def is_session_open():
+def _is_session_open():
     return Navi.context["is_session_open"]
 
 

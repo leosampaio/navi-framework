@@ -7,8 +7,9 @@ import logging
 
 from pydispatch import dispatcher
 
-from navi.core import Navi, is_session_open, open_session
+from navi.core import Navi
 from navi.speech import snowboywrapper
+from navi import context as ctx
 
 
 logger = logging.getLogger(__name__)
@@ -59,10 +60,10 @@ def hotword_activation(func):
 
     def decorator(func):
         def wrap_and_call(*kvars, **kwargs):
-            open_session()
+            ctx.open_audio_session()
             dispatcher.send(signal="hotword_terminate_detector",
                             sender=dispatcher.Any)
-            while is_session_open():
+            while ctx.is_audio_session_open():
                 func(*kvars, **kwargs)
             dispatcher.send(signal="hotword_start_detector",
                             sender=dispatcher.Any)

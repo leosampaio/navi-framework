@@ -63,5 +63,25 @@ def clean_user_error_context(context):
         context.pop(k)
 
 
-def close_session_when_done():
-    Navi.context["should_close_session"] = True
+def close_session_when_done(context):
+    context["should_close_session"] = True
+
+def should_close_session(context):
+    return context["should_close_session"]
+
+def set_session_was_closed(context):
+    context["is_session_open"] = False
+    context["should_close_session"] = False
+    Navi.context["is_audio_session_open"] = False
+
+def open_session(context):
+    context["is_session_open"] = True
+
+def is_session_open(context):
+    return context["is_session_open"]
+
+def open_audio_session():
+    Navi.context["is_audio_session_open"] = True
+
+def is_audio_session_open():
+    return Navi.context["is_audio_session_open"]

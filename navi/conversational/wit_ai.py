@@ -5,9 +5,7 @@ import logging
 from pydispatch import dispatcher
 from wit import Wit
 
-from navi.core import (Navi, get_handler_for,
-                       set_can_close_session, should_close_session,
-                       set_session_was_closed)
+from navi.core import (Navi, get_handler_for)
 from navi import context as ctx
 from navi.intents import Intent
 from . import ConversationalResponse
@@ -47,7 +45,7 @@ class WitConversationalPlatform(object):
         context["has_used_error_state"] = False
 
     def _new_user_context_created(self, context):
-        context["session_started"] = False
+        pass
 
     def _invalidate_context(self, context):
         close_session(context)
@@ -55,7 +53,7 @@ class WitConversationalPlatform(object):
     def parser(self, session, message, context):
 
         client = self.client
-        messages, entities, action_name = [], {}, None
+        messages, entities, action_name, confidence = [], {}, None, 0.0
 
         # the parser should parse "forever"
         while True:
@@ -74,6 +72,9 @@ class WitConversationalPlatform(object):
                 entities.update(
                     _simplify_entities_dict(converse_result['entities']))
 
+            if 'confidence' in converse_result:
+                confidence = converse_result['confidence']
+
             if converse_result['type'] == 'action':
 
                 action_name = converse_result['action']
@@ -82,7 +83,8 @@ class WitConversationalPlatform(object):
                                                   entities=entities,
                                                   messages=[],
                                                   ready=False,
-                                                  original_res=converse_result)
+                                                  original_res=converse_result,
+                                                  confidence=confidence)
                 yield response
                 continue
 
@@ -103,7 +105,8 @@ class WitConversationalPlatform(object):
                                                   entities=entities,
                                                   messages=messages,
                                                   ready=True,
-                                                  original_res=converse_result)
+                                                  original_res=converse_result,
+                                                  confidence=confidence)
                 yield response
                 continue
 
