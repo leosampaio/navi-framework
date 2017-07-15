@@ -95,6 +95,8 @@ def parse_message(message,
         (_, intent) = disp_responses[0]
 
         handler = get_handler_for(intent)
+        handler.context = context
+        
         if handler is None:
             logger.warning("No handler for intent %s",
                            type(intent).__name__)
@@ -130,7 +132,7 @@ def _parsing_error(message, context):
 
     ctx.clean_user_error_context(context)
     ctx.clean_user_context(context)
-    ctx.set_session_was_closed()
+    ctx.set_session_was_closed(context)
 
     signal = "parsing_error"
     disp_responses = dispatcher.send(signal=signal,

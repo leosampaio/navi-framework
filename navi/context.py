@@ -10,6 +10,7 @@ def for_user(user_id):
         user_id = 'any'
 
     if user_id in users_dict:
+        users_dict[user_id]["user"] = user_id
         return users_dict[user_id]
     else:
         users_dict[user_id] = {}
@@ -70,7 +71,15 @@ def should_close_session(context):
     return context["should_close_session"]
 
 def set_session_was_closed(context):
+
+    user_id = None
+    if 'user' in context:
+        user_id = context['user']
+
+    context.clear()
+    context["user"] = user_id
     context["is_session_open"] = False
+    context["session_started"] = False
     context["should_close_session"] = False
     Navi.context["is_audio_session_open"] = False
 

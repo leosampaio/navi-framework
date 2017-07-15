@@ -4,7 +4,7 @@ import logging
 from pydispatch import dispatcher
 
 from navi.core import Navi
-from navi.intents import Entity, Intent
+from navi.intents import Entity, Intent, FulfilledIntent
 
 logger = logging.getLogger("__name__")
 
@@ -76,6 +76,9 @@ class IntentHandler(object):
         """
         pass
 
+    def delay(self, intent):
+        pass
+
     @classmethod
     def create(cls):
         """IntentHandler Factory to be called on 'handler_for_intent' 
@@ -105,3 +108,13 @@ def handler_for_intent(intent):
         return Cls
 
     return class_decorator
+
+
+@handler_for_intent(FulfilledIntent)
+class FulfilledIntentHandler(IntentHandler):
+
+    def confirm(self, intent, context={}):
+        return Intent.ConfirmResponse.ready
+
+    def handle(self, intent, context={}):
+        return Intent.HandleResponse(Intent.HandleResponse.Status.success, {})

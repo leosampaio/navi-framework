@@ -47,3 +47,6 @@ class Intent(object):
 
 class Entity(object):
     pass
+
+class FulfilledIntent(Intent):
+    pass
