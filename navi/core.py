@@ -20,12 +20,13 @@ class Navi(object):
     """
 
     context = {}
+    _responses = {}
 
     def __init__(self, bot_module,
                  intent_modules=None,
                  handler_modules=None,
                  interface_modules=None,
-                 action_modules=None,
+                 response_modules=None,
                  debug=False):
         """Initialize Navi instance with your bot modules
 
@@ -89,10 +90,10 @@ class Navi(object):
                     raise ImportError(
                         "Can't import interface module {}".format(module))
 
-        if action_modules == None:
-            import_module('.actions', bot_module.__name__)
+        if response_modules == None:
+            import_module('.responses', bot_module.__name__)
         else:
-            for module in action_modules:
+            for module in response_modules:
                 try:
                     import module
                 except ImportError:
@@ -101,6 +102,7 @@ class Navi(object):
 
         dispatcher.connect(self._new_user_context_created,
                            signal="did_create_new_user_context")
+        print(Navi._responses)
 
     def start(self, messaging_platforms=[], conversational_platforms=[],
               speech_platforms=[]):

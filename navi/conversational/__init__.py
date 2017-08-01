@@ -101,7 +101,7 @@ def parse_message(message,
 
     # keep getting responses until we can handle the intent
     if must_ask:
-        continue
+        pass
 
     # 2. Confirm
     confirm_response = handler.confirm(intent)
@@ -109,14 +109,14 @@ def parse_message(message,
         confirm_response, context)
 
     if not is_ready:
-        continue
+        pass
 
     # 3. Handle
     handle_response = handler.handle(intent)
     context = _get_handle_result_into_context(handle_response,
                                               context)
 
-    continue
+    pass
 
 
 def _parsing_error(message, context):
@@ -137,7 +137,6 @@ def _parsing_error(message, context):
     else:
         (_, message) = disp_responses[0]
         return message
-
 
 def _get_resolve_result_into_context(resolve_responses, intent, context):
 

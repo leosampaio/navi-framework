@@ -1,5 +1,6 @@
 import abc
 from enum import Enum
+import traceback
 
 from pydispatch import dispatcher
 
@@ -8,6 +9,13 @@ class IntentClassWatcher(type):
 
     def __init__(cls, name, bases, clsdict):
         if len(cls.mro()) > 2:
+
+            entities = [i for i in clsdict if isinstance(
+                clsdict[i], Entity)]
+
+            for entity in entities:
+                clsdict[entity].defined_intent_name = name
+
             signal = "intent_class_{}".format(name)
             dispatcher.connect(cls.get_class, signal=signal)
 
@@ -45,19 +53,19 @@ class Intent(object):
         ready = 4
 
     class ConfirmResponse(Enum):
-        unspecified = 0
-        unsupported = 1
-        failure = 2
-        ready = 3
+        unspecified = 4
+        unsupported = 5
+        failure = 6
+        ready = 7
 
     class HandleResponse(object):
 
         class Status(Enum):
             """Defines possible handling status for a handle response"""
-            unspecified = 0
-            in_progress = 1
-            success = 2
-            failure = 3
+            unspecified = 8
+            in_progress = 9
+            success = 10
+            failure = 11
 
         def __init__(self, status, response_dict):
             self.status = status
@@ -65,7 +73,16 @@ class Intent(object):
 
 
 class Entity(object):
-    pass
+
+    def __init__(self, def_name=None):
+        if def_name == None:
+            (filename, line_number, function_name,
+             text) = traceback.extract_stack()[-2]
+            def_name = text[:text.find('=')].strip()
+        self.defined_name = def_name
+
+    def __repr__(self):
+        return "{}_{}".format(self.defined_intent_name, self.defined_name)
 
 
 class FulfilledIntent(Intent):
