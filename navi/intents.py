@@ -1,6 +1,18 @@
 import abc
 from enum import Enum
 
+from pydispatch import dispatcher
+
+
+class IntentClassWatcher(type):
+
+    def __init__(cls, name, bases, clsdict):
+        if len(cls.mro()) > 2:
+            signal = "intent_class_{}".format(name)
+            dispatcher.connect(cls.get_class, signal=signal)
+
+        super(IntentClassWatcher, cls).__init__(name, bases, clsdict)
+
 
 class Intent(object):
     """Base class for Intent representation.
@@ -9,11 +21,17 @@ class Intent(object):
     `IntentHandler`.
     """
 
+    __metaclass__ = IntentClassWatcher
+
     def __init__(self, **kwargs):
         entities = [i for i in dir(self) if isinstance(
             getattr(self, i), Entity)]
         for entity_name in entities:
             setattr(self, entity_name, kwargs.get(entity_name))
+
+    @classmethod
+    def get_class(cls):
+        return cls
 
     class ResolveResponse(Enum):
         """Base Intent Resolving Response.
@@ -45,8 +63,10 @@ class Intent(object):
             self.status = status
             self.response_dict = response_dict
 
+
 class Entity(object):
     pass
+
 
 class FulfilledIntent(Intent):
     pass

@@ -5,8 +5,11 @@ import logging
 import threading
 import signal
 import sys
+import inspect
 
 from pydispatch import dispatcher
+
+from .notebook import Notebook
 
 logger = logging.getLogger('navi')
 
@@ -49,6 +52,8 @@ class Navi(object):
             logger.addHandler(ch)
 
         self.bot_module = bot_module
+        self.bot_path = os.path.dirname(inspect.getfile(bot_module))
+        Notebook._set_db(os.path.join(self.bot_path, 'notebook.db'))
 
         Navi.context["should_close_session"] = False
         Navi.context["users"] = {}
@@ -147,6 +152,18 @@ def get_handler_for(intent):
     if len(responses) > 0:
         (_, handler) = responses[0]
         return handler
+    else:
+        return None
+
+def get_intent_and_fill_slots(name, entities, context):
+    signal = "intent_class_{}".format(type(intent).__name__)
+    logger.info("Sent {} signal".format(signal))
+    responses = dispatcher.send(signal=signal, sender=dispatcher.Any,
+                                intent=intent)
+    if len(responses) > 0:
+        (_, IntentClass) = responses[0]
+        combined_dictionary = dict(entities, **context)
+        return IntentClass(**combined_dictionary)
     else:
         return None
 

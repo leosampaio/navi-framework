@@ -53,62 +53,34 @@ class WitConversationalPlatform(object):
     def parser(self, session, message, context):
 
         client = self.client
-        messages, entities, action_name, confidence = [], {}, None, 0.0
+        entities, intent_name, confidence = {}, None, 0.0
 
-        # the parser should parse "forever"
-        while True:
+        converse_result = client.message(message)
 
-            converse_result = client.converse(session,
-                                              message,
-                                              context)
+        if message != "":
+            message = ""
 
-            if message != "":
-                message = ""
+        logger.info("Context Before Converse: %s\n", context)
+        logger.info("Converse Result: %s", converse_result)
 
-            logger.info("Context Before Converse: %s\n", context)
-            logger.info("Converse Result: %s", converse_result)
+        if 'entities' in converse_result:
+            entities.update(
+                _simplify_entities_dict(converse_result['entities']))
 
-            if 'entities' in converse_result:
-                entities.update(
-                    _simplify_entities_dict(converse_result['entities']))
+        if 'confidence' in converse_result:
+            confidence = converse_result['confidence']
 
-            if 'confidence' in converse_result:
-                confidence = converse_result['confidence']
+        if 'intent' in entities:
+            intent_name = entities['intent']
+            confidence = (converse_result['entities']
+                          ['intent'][0]['confidence'])
 
-            if converse_result['type'] == 'action':
-
-                action_name = converse_result['action']
-
-                response = ConversationalResponse(action=action_name,
-                                                  entities=entities,
-                                                  messages=[],
-                                                  ready=False,
-                                                  original_res=converse_result,
-                                                  confidence=confidence)
-                yield response
-                continue
-
-            if converse_result['type'] == 'msg':
-
-                if ((messages[-1] if len(messages) != 0 else None)
-                        == converse_result['msg']):
-                    # if message is repeated, wit is on a loop
-                    converse_result['type'] = 'stop'
-                else:
-                    messages.append(converse_result['msg'])
-
-                continue
-
-            if converse_result['type'] == 'stop':
-
-                response = ConversationalResponse(action=action_name,
-                                                  entities=entities,
-                                                  messages=messages,
-                                                  ready=True,
-                                                  original_res=converse_result,
-                                                  confidence=confidence)
-                yield response
-                continue
+        response = ConversationalResponse(intent=intent_name,
+                                          entities=entities,
+                                          ready=False,
+                                          original_res=converse_result,
+                                          confidence=confidence)
+        return response
 
 
 def close_session(context):

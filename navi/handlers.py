@@ -76,7 +76,7 @@ class IntentHandler(object):
         """
         pass
 
-    def delay(self, intent):
+    def schedule(self, intent):
         pass
 
     @classmethod
@@ -112,9 +112,6 @@ def handler_for_intent(intent):
 
 @handler_for_intent(FulfilledIntent)
 class FulfilledIntentHandler(IntentHandler):
-
-    def confirm(self, intent, context={}):
-        return Intent.ConfirmResponse.ready
 
     def handle(self, intent, context={}):
         return Intent.HandleResponse(Intent.HandleResponse.Status.success, {})
