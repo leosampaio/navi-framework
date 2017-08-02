@@ -5,8 +5,11 @@ import logging
 import threading
 import signal
 import sys
+import inspect
 
 from pydispatch import dispatcher
+
+from .notebook import Notebook
 
 logger = logging.getLogger('navi')
 
@@ -17,12 +20,13 @@ class Navi(object):
     """
 
     context = {}
+    _responses = {}
 
     def __init__(self, bot_module,
                  intent_modules=None,
                  handler_modules=None,
                  interface_modules=None,
-                 action_modules=None,
+                 response_modules=None,
                  debug=False):
         """Initialize Navi instance with your bot modules
 
@@ -49,6 +53,8 @@ class Navi(object):
             logger.addHandler(ch)
 
         self.bot_module = bot_module
+        self.bot_path = os.path.dirname(inspect.getfile(bot_module))
+        Notebook._set_db(os.path.join(self.bot_path, 'notebook.db'))
 
         Navi.context["should_close_session"] = False
         Navi.context["users"] = {}
@@ -84,10 +90,10 @@ class Navi(object):
                     raise ImportError(
                         "Can't import interface module {}".format(module))
 
-        if action_modules == None:
-            import_module('.actions', bot_module.__name__)
+        if response_modules == None:
+            import_module('.responses', bot_module.__name__)
         else:
-            for module in action_modules:
+            for module in response_modules:
                 try:
                     import module
                 except ImportError:
@@ -147,6 +153,18 @@ def get_handler_for(intent):
     if len(responses) > 0:
         (_, handler) = responses[0]
         return handler
+    else:
+        return None
+
+def get_intent_and_fill_slots(name, entities, context):
+    signal = "intent_class_{}".format(name)
+    logger.info("Sent {} signal".format(signal))
+    responses = dispatcher.send(signal=signal, sender=dispatcher.Any)
+
+    if len(responses) > 0:
+        (_, IntentClass) = responses[0]
+        combined_dictionary = dict(entities, **context)
+        return IntentClass(**combined_dictionary)
     else:
         return None
 

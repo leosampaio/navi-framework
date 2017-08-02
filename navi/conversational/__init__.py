@@ -4,9 +4,10 @@ import logging
 
 from pydispatch import dispatcher
 
-from navi.core import (Navi, get_handler_for)
+from navi.core import (Navi, get_handler_for, get_intent_and_fill_slots)
 from navi import context as ctx
 from navi.intents import Intent
+from navi import responses
 
 
 logger = logging.getLogger(__name__)
@@ -15,26 +16,24 @@ logger = logging.getLogger(__name__)
 class ConversationalResponse(object):
 
     def __init__(self,
-                 action=None,
+                 intent=None,
                  entities={},
-                 messages=[],
                  ready=False,
                  confidence=0,
                  original_res={}):
-        self.action = action
+        self.intent = intent
         self.entities = entities
-        self.messages = messages
         self.ready = ready
         self.confidence = confidence
         self.original_res = original_res
 
     def __str__(self):
         return ("ConversationalResponse: "
-                "\n\taction: \t{}\n\tentities: \t{}"
-                "\n\tmessages: \t{}\n\tready to send: \t{}"
-                ).format(self.action,
+                "\n\tintent: \t{}\n\tentities: \t{}"
+                "\n\tconfidence: \t{}\n\tready to send: \t{}"
+                ).format(self.intent,
                          self.entities,
-                         self.messages,
+                         self.confidence,
                          self.ready)
 
 
@@ -60,91 +59,91 @@ def parse_message(message,
         chosen_platform = ctx.general()['wit_ai']
 
     # every platform parser is a python generator
-    parser = chosen_platform.parser(session, message, context)
+    response = chosen_platform.parser(session, message, context)
 
-    for response in parser:
+    logger.info("Parser response: %s", response)
 
-        logger.info("Parser response: %s", response)
+    if response.confidence < confidence_threshold:
+        return _parsing_error(message, context)
 
-        if response.confidence < confidence_threshold:
+    if response.ready:
+        ctx.clean_user_error_context(context)
+        if ctx.should_close_session(context):
+            ctx.clean_user_context(context)
+            ctx.set_session_was_closed(context)
+        return response.messages
+
+    intent_name = None
+    if response.intent is None:
+        if 'intent' in context:
+            intent_name = context['intent']
+        else:
             return _parsing_error(message, context)
+    else:
+        intent_name = response.intent
+        context['intent'] = intent_name
 
-        if response.ready:
-            ctx.clean_user_error_context(context)
-            if ctx.should_close_session(context):
-                ctx.clean_user_context(context)
-                ctx.set_session_was_closed(context)
-            return response.messages
+    intent = get_intent_and_fill_slots(intent_name,
+                                       response.entities,
+                                       context)
 
-        if response.action is None:
-            return response.messages
+    handler = get_handler_for(intent)
+    handler.context = context
 
-        signal = "action_{}".format(response.action)
-        logger.info("Sent {} signal".format(signal))
-        disp_responses = dispatcher.send(signal=signal,
-                                         sender=dispatcher.Any,
-                                         message=message,
-                                         entities=response.entities,
-                                         context=context)
+    if handler is None:
+        logger.warning("No handler for intent %s",
+                       type(intent).__name__)
+        return _parsing_error(message, context)
 
-        if not disp_responses:
-            logger.warning("No callback for action %s",
-                           response.action)
-            return _parsing_error(message, context)
+    # 1. Resolve
+    resolve_responses = handler.resolve(intent)
+    (must_ask, messages) = _parse_resolve_result(resolve_responses,
+                                                 intent, context)
 
-        (_, intent) = disp_responses[0]
+    # keep getting responses until we can handle the intent
+    if must_ask:
+        if len(messages) > 0:
+            return messages[0]
+        else:
+            return ""
 
-        handler = get_handler_for(intent)
-        if handler is None:
-            logger.warning("No handler for intent %s",
-                           type(intent).__name__)
-            return _parsing_error(message, context)
+    # 2. Confirm
+    confirm_response = handler.confirm(intent)
+    (is_ready, message) = _parse_confirm_result(confirm_response, intent,
+                                                context)
 
-        # 1. Resolve
-        resolve_responses = handler.resolve(intent)
-        (context, must_ask) = _get_resolve_result_into_context(
-            resolve_responses,
-            intent, context)
+    if not is_ready:
+        if message:
+            return message
+        else:
+            return ""
 
-        # keep getting responses until we can handle the intent
-        if must_ask:
-            continue
+    # 3. Handle
+    handle_response = handler.handle(intent)
+    message = _parse_handle_result(handle_response, intent,
+                                   context)
 
-        # 2. Confirm
-        confirm_response = handler.confirm(intent)
-        (context, is_ready) = _get_confirm_result_into_context(
-            confirm_response, context)
+    ctx.clean_user_error_context(context)
+    ctx.clean_user_context(context)
+    ctx.set_session_was_closed(context)
 
-        if not is_ready:
-            continue
-
-        # 3. Handle
-        handle_response = handler.handle(intent)
-        context = _get_handle_result_into_context(handle_response,
-                                                  context)
-
-        continue
+    if message:
+        return message
+    else:
+        return ""
 
 
 def _parsing_error(message, context):
 
     ctx.clean_user_error_context(context)
     ctx.clean_user_context(context)
-    ctx.set_session_was_closed()
+    ctx.set_session_was_closed(context)
 
-    signal = "parsing_error"
-    disp_responses = dispatcher.send(signal=signal,
-                                     sender=dispatcher.Any,
-                                     message=message,
-                                     context=context)
+    message = responses.get(for_key="parsing_error")
+    if message is None:
+        return "parsing_error"
 
-    if not disp_responses:
-        logger.info("No parsing error treatment found")
-        return ""
-    else:
-        (_, message) = disp_responses[0]
-        return message
-
+    return message
 
 def _get_resolve_result_into_context(resolve_responses, intent, context):
 
@@ -201,6 +200,72 @@ def _get_handle_result_into_context(handle_response, context):
     context.update(handle_response.response_dict)
 
     return context
+
+
+def _parse_resolve_result(resolve_responses, intent, context):
+
+    must_ask_user_for_more_info = False
+    messages = []
+
+    # iterate over resolve responses and include data on context
+    for entity_name, resolve_response in resolve_responses.iteritems():
+        entity = getattr(intent.__class__, entity_name)
+        message = responses.get(for_intent_entity=entity,
+                                for_status=resolve_response)
+
+        if (resolve_response == Intent.ResolveResponse.missing or
+                resolve_response == Intent.ResolveResponse.unsupported or
+                resolve_response == Intent.ResolveResponse.ambiguous):
+            messages.append(message)
+            must_ask_user_for_more_info = True
+        elif (resolve_response == Intent.ResolveResponse.not_required or
+              resolve_response == Intent.ResolveResponse.ready):
+            context_key = "{}".format(entity_name)
+            context[context_key] = (
+                getattr(intent, entity_name))
+
+    return (must_ask_user_for_more_info, messages)
+
+
+def _parse_confirm_result(confirm_response, intent, context):
+
+    is_ready = False
+    message = responses.get(for_intent=intent.__class__,
+                            for_status=confirm_response)
+
+    if confirm_response == Intent.ConfirmResponse.ready:
+        context["ready"] = True
+        is_ready = True
+    elif confirm_response == Intent.ConfirmResponse.failure:
+        context["failure"] = True
+    elif confirm_response == Intent.ConfirmResponse.unsupported:
+        context["unsupported"] = True
+
+    return (is_ready, message)
+
+
+def _parse_handle_result(handle_response, intent, context):
+
+    message = responses.get(for_intent=intent.__class__,
+                            for_status=handle_response.status)
+
+    if handle_response.status == Intent.HandleResponse.Status.success:
+        context["handled"] = True
+    elif handle_response.status == Intent.HandleResponse.Status.failure:
+        context["failure"] = True
+    elif handle_response.status == Intent.HandleResponse.Status.in_progress:
+        context["in_progress"] = True
+    context.update(handle_response.response_dict)
+
+    try:
+        message = message.format(**handle_response.response_dict)
+    except (KeyError):
+        try:
+            message = message.format(**context)
+        except (KeyError):
+            pass
+
+    return message
 
 
 def action(action):
