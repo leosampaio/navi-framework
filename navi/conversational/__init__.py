@@ -145,6 +145,7 @@ def _parsing_error(message, context):
 
     return message
 
+
 def _get_resolve_result_into_context(resolve_responses, intent, context):
 
     must_ask_user_for_more_info = False
@@ -240,6 +241,11 @@ def _parse_confirm_result(confirm_response, intent, context):
         context["failure"] = True
     elif confirm_response == Intent.ConfirmResponse.unsupported:
         context["unsupported"] = True
+
+    try:
+        message = message.format(**context)
+    except (Exception):
+        pass
 
     return (is_ready, message)
 
