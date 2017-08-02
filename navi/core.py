@@ -102,7 +102,6 @@ class Navi(object):
 
         dispatcher.connect(self._new_user_context_created,
                            signal="did_create_new_user_context")
-        print(Navi._responses)
 
     def start(self, messaging_platforms=[], conversational_platforms=[],
               speech_platforms=[]):
@@ -158,10 +157,10 @@ def get_handler_for(intent):
         return None
 
 def get_intent_and_fill_slots(name, entities, context):
-    signal = "intent_class_{}".format(type(intent).__name__)
+    signal = "intent_class_{}".format(name)
     logger.info("Sent {} signal".format(signal))
-    responses = dispatcher.send(signal=signal, sender=dispatcher.Any,
-                                intent=intent)
+    responses = dispatcher.send(signal=signal, sender=dispatcher.Any)
+
     if len(responses) > 0:
         (_, IntentClass) = responses[0]
         combined_dictionary = dict(entities, **context)

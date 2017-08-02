@@ -74,6 +74,8 @@ class WitConversationalPlatform(object):
             intent_name = entities['intent']
             confidence = (converse_result['entities']
                           ['intent'][0]['confidence'])
+        if 'intent' in context:
+            confidence = 1.0
 
         response = ConversationalResponse(intent=intent_name,
                                           entities=entities,

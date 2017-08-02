@@ -1,3 +1,5 @@
+import random
+
 from pydispatch import dispatcher
 
 from .core import Navi
@@ -67,4 +69,6 @@ def get(for_intent=None,
     if key not in res:
         return None
 
-    return res[key]
+    responses = res[key]
+
+    return random.choice(responses)
