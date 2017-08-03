@@ -29,7 +29,7 @@ class IntentHandler(object):
 
     __metaclass__ = abc.ABCMeta
 
-    def resolve(self, intent):
+    def resolve(self, intent, context):
         """Check if all needed parameters are set. Complain if not.
 
         :param intent: an intent object of type TVSeriesEpisodeIntent
@@ -45,7 +45,7 @@ class IntentHandler(object):
             try:
                 method_name = "resolve_{}".format(entity_name)
                 method = getattr(self, method_name)
-                resolution = method(getattr(intent, entity_name))
+                resolution = method(getattr(intent, entity_name), context)
                 resolve_responses[entity_name] = resolution
                 logger.info("{}: {}".format(entity_name, resolution))
             except Exception as e:
@@ -58,7 +58,7 @@ class IntentHandler(object):
 
         return resolve_responses
 
-    def confirm(self, intent):
+    def confirm(self, intent, context):
         """Optional. Perform any final validation of the intent parameters
         and to verify that you are ready to handle the intent
 
@@ -67,7 +67,7 @@ class IntentHandler(object):
         return Intent.ConfirmResponse.ready
 
     @abc.abstractmethod
-    def handle(self, intent):
+    def handle(self, intent, context):
         """Execute intended action and return result
 
         :param intent: an intent object of type TVSeriesEpisodeIntent

@@ -5,11 +5,13 @@ import logging
 import threading
 import signal
 import sys
+import time
 import inspect
 
 from pydispatch import dispatcher
+import schedule
 
-from .notebook import Notebook
+from .notebooks import Notebook
 
 logger = logging.getLogger('navi')
 
@@ -129,11 +131,17 @@ class Navi(object):
             self.threads.append(t)
             t.start()
 
+        t = threading.Thread(target=self._run_scheduler)
+        t.daemon = True
+        self.threads.append(t)
+        t.start()
+
         self.idle()
 
     def idle(self):
         def signal_handler(signal, frame):
             logger.info("Exiting...")
+            Notebook.close()
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
@@ -143,6 +151,11 @@ class Navi(object):
     def _new_user_context_created(self, context):
         context["session_started"] = False
         context["should_close_session"] = False
+
+    def _run_scheduler(self):
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
 
 
 def get_handler_for(intent):

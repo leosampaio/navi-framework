@@ -96,7 +96,7 @@ def parse_message(message,
         return _parsing_error(message, context)
 
     # 1. Resolve
-    resolve_responses = handler.resolve(intent)
+    resolve_responses = handler.resolve(intent, context)
     (must_ask, messages) = _parse_resolve_result(resolve_responses,
                                                  intent, context)
 
@@ -108,7 +108,7 @@ def parse_message(message,
             return ""
 
     # 2. Confirm
-    confirm_response = handler.confirm(intent)
+    confirm_response = handler.confirm(intent, context)
     (is_ready, message) = _parse_confirm_result(confirm_response, intent,
                                                 context)
 
@@ -119,7 +119,7 @@ def parse_message(message,
             return ""
 
     # 3. Handle
-    handle_response = handler.handle(intent)
+    handle_response = handler.handle(intent, context)
     message = _parse_handle_result(handle_response, intent,
                                    context)
 
