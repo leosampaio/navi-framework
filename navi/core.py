@@ -278,6 +278,7 @@ def entry_point(entry_point_name):
             context = ctx.for_user(request.user_id)
             metadata = ctx.for_user_metadata(request.user_id)
             metadata['response'] = response
+            context['response'] = response
 
             reply_message = func(request.message, context)
 
