@@ -29,13 +29,14 @@ class NaviSpeechRecognition(NaviEntryPoint):
         failure = 2
         timeout = 3
 
-    def __init__(self, name, service, key, language="en-us", username=None):
+    def __init__(self, name, service, key, tts_script, language="en-us", username=None):
         super(NaviSpeechRecognition, self).__init__(name)
 
         self.key = key
         self.service = service
         self.language = language
         self.username = username
+        NaviSpeechRecognition.tts_script = tts_script
 
     def start(self):
 
@@ -116,9 +117,10 @@ class NaviSpeechRecognitionResponse(NaviResponse):
 
 
 def say(message):
-    """TEMPORARY MACOS DEPENDENCY. HARDCODED VOICE AND COMMAND"""
+
     from subprocess import call
-    command = ["say", "-v", "Luciana"] + message.split()
+    message = "\"{}\"".format(message.encode('utf-8'))
+    command = NaviSpeechRecognition.tts_script.split() + [message]
     call(command)
 
 

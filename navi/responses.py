@@ -71,4 +71,4 @@ def get(for_intent=None,
 
     responses = res[key]
 
-    return random.choice(responses)
+    return random.choice(responses).decode('utf-8')

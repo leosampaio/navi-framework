@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 class SnowboyHotwordDetector(object):
 
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, names, models):
+        self.names = names
+        self.models = models
 
     def start(self):
 
@@ -28,8 +29,15 @@ class SnowboyHotwordDetector(object):
         dispatcher.connect(self._start_detector,
                            signal="hotword_start_detector",
                            sender=dispatcher.Any)
+
+        sensitivity = [0.5]*len(self.models)
+
+        self.callbacks = []
+        for (model, name) in zip(self.models, self.names):
+            self.callbacks.append(lambda: self._activated_by_hotword(name))
+
         self.detector = snowboywrapper.HotwordDetector(
-            self.model, sensitivity=0.5)
+            self.models, sensitivity=sensitivity)
 
         self._start_detector()
 
@@ -37,14 +45,15 @@ class SnowboyHotwordDetector(object):
         self.detector.terminate()
 
     def _start_detector(self):
-        self.detector.start(detected_callback=self._activated_by_hotword,
+        self.detector.start(detected_callback=self.callbacks,
                             sleep_time=0.03)
 
-    def _activated_by_hotword(self):
-        dispatcher.send(signal="hotword_activation", sender=self)
+    def _activated_by_hotword(self, name):
+        signal = "hotword_activation_{}".format(name)
+        dispatcher.send(signal=signal, sender=self, name=name)
 
 
-def hotword_activation(func):
+def hotword_activation(name):
     """Link a function with a hotword activation event
 
     usage: 
@@ -68,10 +77,11 @@ def hotword_activation(func):
             dispatcher.send(signal="hotword_start_detector",
                             sender=dispatcher.Any)
 
-        dispatcher.connect(wrap_and_call, signal="hotword_activation",
+        signal = "hotword_activation_{}".format(name)
+        dispatcher.connect(wrap_and_call, signal=signal,
                            sender=dispatcher.Any)
         logger.info(
             "registering {} for hotword_activation".format(func.__name__))
         return wrap_and_call
 
-    return decorator(func)
+    return decorator

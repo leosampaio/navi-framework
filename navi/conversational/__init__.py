@@ -46,6 +46,9 @@ def parse_message(message,
                   platform=ConversationalPlatform.wit_ai,
                   confidence_threshold=0.1):
 
+    if not message:
+        return _parsing_error(message, context)
+
     # check if there is an open session and start one if not
     if not context.setdefault("session_started", False):
         session = str(uuid.uuid1())
