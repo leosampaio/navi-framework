@@ -105,6 +105,9 @@ class Navi(object):
         dispatcher.connect(self._new_user_context_created,
                            signal="did_create_new_user_context")
 
+        dispatcher.connect(self._graceful_stop,
+                           signal="graceful_stop")
+
     def start(self, messaging_platforms=[], conversational_platforms=[],
               speech_platforms=[]):
         """Start bot in development mode, if available for chosen messaging
@@ -157,6 +160,10 @@ class Navi(object):
             schedule.run_pending()
             time.sleep(1)
 
+    def _graceful_stop(self, context={}):
+        import context as ctx
+        ctx.set_session_was_closed(context)
+
 
 def get_handler_for(intent):
     signal = "handler_for_{}".format(type(intent).__name__)
@@ -168,6 +175,12 @@ def get_handler_for(intent):
         return handler
     else:
         return None
+
+
+def stop_and_close_session(user_id='any'):
+    dispatcher.send(signal="graceful_stop", sender=dispatcher.Any,
+                    context={'user': user_id})
+
 
 def get_intent_and_fill_slots(name, entities, context):
     signal = "intent_class_{}".format(name)
@@ -288,7 +301,6 @@ def entry_point(entry_point_name):
                         response.reply(message)
                 else:
                     response.reply(reply_message)
-            return reply_message
 
         callback_signal = "cb_for_entry_point_{}".format(entry_point_name)
         dispatcher.connect(wrap_and_call,

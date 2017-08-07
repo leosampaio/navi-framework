@@ -49,7 +49,7 @@ class IntentHandler(object):
                 resolve_responses[entity_name] = resolution
                 logger.info("{}: {}".format(entity_name, resolution))
             except Exception as e:
-                print(str(e))
+                logger.info(str(e))
                 resolution = Intent.ResolveResponse.not_required
                 resolve_responses[entity_name] = resolution
                 logger.info("{}: {}".format(

@@ -29,8 +29,6 @@ class WitConversationalPlatform(object):
                            signal="did_not_understand")
         dispatcher.connect(self._set_failed_request,
                            signal="did_fail")
-        dispatcher.connect(self._invalidate_context,
-                           signal="did_timeout")
 
         # register hook for context changes
         dispatcher.connect(self._new_user_context_created,
@@ -46,9 +44,6 @@ class WitConversationalPlatform(object):
 
     def _new_user_context_created(self, context):
         pass
-
-    def _invalidate_context(self, context):
-        close_session(context)
 
     def parser(self, session, message, context):
 
@@ -83,12 +78,6 @@ class WitConversationalPlatform(object):
                                           original_res=converse_result,
                                           confidence=confidence)
         return response
-
-
-def close_session(context):
-    context["wit_context"] = {}
-    context["wit_context"]["session_started"] = False
-    set_session_was_closed()
 
 
 def close_session_when_done():

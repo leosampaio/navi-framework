@@ -72,9 +72,11 @@ def should_close_session(context):
 
 def set_session_was_closed(context):
 
-    user_id = None
+    user_id = 'any'
     if 'user' in context:
         user_id = context['user']
+
+    context = for_user(user_id)
 
     context.clear()
     context["user"] = user_id
@@ -93,4 +95,7 @@ def open_audio_session():
     Navi.context["is_audio_session_open"] = True
 
 def is_audio_session_open():
-    return Navi.context["is_audio_session_open"]
+    try:   
+        return Navi.context["is_audio_session_open"]
+    except:
+        return False

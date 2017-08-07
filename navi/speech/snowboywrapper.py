@@ -78,6 +78,8 @@ class HotwordDetector(object):
         self.ring_buffer = RingBuffer(
             self.detector.NumChannels() * self.detector.SampleRate() * 5)
 
+        self.should_stop = False
+
     def start(self, detected_callback=lambda x: None,
               interrupt_check=lambda: False,
               sleep_time=0.03):
@@ -100,6 +102,8 @@ class HotwordDetector(object):
         if interrupt_check():
             logger.debug("detect voice return")
             return
+        else:
+            self.should_stop = False
 
         def audio_callback(in_data, frame_count, time_info, status):
             self.ring_buffer.extend(in_data)
@@ -129,7 +133,7 @@ class HotwordDetector(object):
         logger.debug("detecting...")
 
         while True:
-            if interrupt_check():
+            if interrupt_check() or self.should_stop:
                 logger.debug("detect voice break")
                 break
             data = self.ring_buffer.get()
@@ -157,6 +161,8 @@ class HotwordDetector(object):
         Terminate audio stream.
         :return: None
         """
+
+        self.should_stop = True
         self.stream_in.stop_stream()
         self.stream_in.close()
         self.audio.terminate()
