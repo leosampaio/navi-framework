@@ -29,18 +29,25 @@ class NaviSpeechRecognition(NaviEntryPoint):
         failure = 2
         timeout = 3
 
-    def __init__(self, name, service, key, tts_script, language="en-us", username=None):
+    def __init__(self, name, service, tts_script, key=None, language="en-us",
+                 username=None, credentials_json=None):
         super(NaviSpeechRecognition, self).__init__(name)
 
         self.key = key
+        self.credentials_json = credentials_json
         self.service = service
         self.language = language
         self.username = username
         NaviSpeechRecognition.tts_script = tts_script
 
+        if self.credentials_json:
+            with open (credentials_json, "r") as file:
+                self.credentials_json = file.read()
+
     def start(self):
 
         Navi.context["speech_key"] = self.key
+        Navi.context["credentials_json"] = self.credentials_json
         Navi.context["speech_service"] = self.service
         Navi.context["speech_language"] = self.language
         Navi.context["speech_username"] = self.username
@@ -64,6 +71,9 @@ class NaviSpeechRecognition(NaviEntryPoint):
             dispatcher.connect(self._did_start_recog,
                                signal="did_start_speech_recognition_sound")
 
+        dispatcher.connect(self._graceful_stop,
+                           signal="graceful_stop")
+
     def _did_start_recog(self):
         play_ding()
 
@@ -73,9 +83,12 @@ class NaviSpeechRecognition(NaviEntryPoint):
     def _did_timeout_recog(self):
         play_ding_dong()
 
+    def _graceful_stop(self):
+        play_ding_dong()
+
     def build_request(self, *kvars, **kwargs):
         return NaviSpeechRecognitionRequest(kwargs.setdefault("user_id"))
-        
+
     def build_response(self, *kvars, **kwargs):
         return NaviSpeechRecognitionResponse()
 
@@ -198,15 +211,13 @@ def _listen_and_convert_to_text():
     key = Navi.context["speech_key"]
     language = Navi.context["speech_language"]
 
-    username = None
-    try:
-        username = Navi.context["speech_username"]
-    except:
-        pass
+    username = Navi.context.get("speech_username")
+    credentials_json = Navi.context.get("credentials_json")
 
     try:
         if service == NaviSpeechRecognition.Services.google:
-            text = r.recognize_google_cloud(audio, credentials_json=key,
+            text = r.recognize_google_cloud(audio,
+                                            credentials_json=credentials_json,
                                             language=language)
         elif service == NaviSpeechRecognition.Services.wit:
             text = r.recognize_wit(audio, key=key)
