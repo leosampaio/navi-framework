@@ -41,7 +41,7 @@ class NaviSpeechRecognition(NaviEntryPoint):
         NaviSpeechRecognition.tts_script = tts_script
 
         if self.credentials_json:
-            with open (credentials_json, "r") as file:
+            with open(credentials_json, "r") as file:
                 self.credentials_json = file.read()
 
     def start(self):
@@ -87,7 +87,9 @@ class NaviSpeechRecognition(NaviEntryPoint):
         play_ding_dong()
 
     def build_request(self, *kvars, **kwargs):
-        return NaviSpeechRecognitionRequest(kwargs.setdefault("user_id"))
+        return NaviSpeechRecognitionRequest(
+            kwargs.setdefault("user_id", "speech")
+        )
 
     def build_response(self, *kvars, **kwargs):
         return NaviSpeechRecognitionResponse()
@@ -133,8 +135,12 @@ def say(message):
 
     from subprocess import call
     message = "\"{}\"".format(message.encode('utf-8'))
-    command = NaviSpeechRecognition.tts_script.split() + [message]
-    call(command)
+    try:
+        command = NaviSpeechRecognition.tts_script.format(message)
+        logger.info("running {}".format(command))
+        call(command, shell=True)
+    except Exception as e:
+        logger.error(str(e))
 
 
 def message_from_speech(func):
