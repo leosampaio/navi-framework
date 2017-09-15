@@ -1,4 +1,3 @@
-import abc
 import logging
 
 from pydispatch import dispatcher
@@ -26,8 +25,6 @@ class IntentHandler(object):
     * 3. Handle
     Execute intended action and return result
     """
-
-    __metaclass__ = abc.ABCMeta
 
     def resolve(self, intent, context):
         """Check if all needed parameters are set. Complain if not.
@@ -66,7 +63,6 @@ class IntentHandler(object):
         """
         return Intent.ConfirmResponse.ready
 
-    @abc.abstractmethod
     def handle(self, intent, context):
         """Execute intended action and return result
 
@@ -74,7 +70,8 @@ class IntentHandler(object):
         :rtype: A dictionary with all values that the developer wants exposed
         to the interface regarding the task handling
         """
-        pass
+        return Intent.HandleResponse(Intent.HandleResponse.Status.success,
+                                     {})
 
     def schedule(self, intent):
         pass
@@ -108,10 +105,3 @@ def handler_for_intent(intent):
         return Cls
 
     return class_decorator
-
-
-@handler_for_intent(FulfilledIntent)
-class FulfilledIntentHandler(IntentHandler):
-
-    def handle(self, intent, context={}):
-        return Intent.HandleResponse(Intent.HandleResponse.Status.success, {})

@@ -203,7 +203,7 @@ def _listen_and_convert_to_text():
     r = sr.Recognizer()
     r.pause_threshold = 0.5
     audio = None
-    with sr.Microphone(sample_rate=16000, chunk_size=1024) as source:
+    with sr.Microphone(sample_rate=8000, chunk_size=1024) as source:
         logger.info("Invoked Speech Recognition")
         try:
             audio = r.listen(source, timeout=5)
@@ -211,6 +211,8 @@ def _listen_and_convert_to_text():
             return (NaviSpeechRecognition.Status.timeout, None)
         except Exception as e:
             logger.exception(e)
+
+    logger.info("Sending audio clip for recognition")
 
     dispatcher.send(signal="did_finish_speech_recognition_sound")
     service = Navi.context["speech_service"]

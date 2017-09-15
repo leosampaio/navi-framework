@@ -7,6 +7,7 @@ from pydispatch import dispatcher
 from navi.core import (Navi, get_handler_for, get_intent_and_fill_slots)
 from navi import context as ctx
 from navi.intents import Intent
+from navi.handlers import IntentHandler
 from navi import responses
 
 
@@ -94,9 +95,9 @@ def parse_message(message,
     handler.context = context
 
     if handler is None:
-        logger.warning("No handler for intent %s",
+        logger.info("No handler for intent %s",
                        type(intent).__name__)
-        return _parsing_error(message, context)
+        handler = IntentHandler()
 
     # 1. Resolve
     resolve_responses = handler.resolve(intent, context)
